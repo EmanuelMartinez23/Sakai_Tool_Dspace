@@ -123,6 +123,7 @@
                 <module>webjars</module>
                 <module>webservices</module>
                 <module>wicket</module>
+                <module>contacts</module>
             </modules>
         </profile>
         <profile>
@@ -211,6 +212,7 @@
                 <module>webjars</module>
                 <module>webservices</module>
                 <module>wicket</module>
+                <module>contacts</module>
                 <module>yaft</module>
             </modules>
         </profile>

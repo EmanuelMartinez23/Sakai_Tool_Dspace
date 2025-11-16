@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Contactos</title>
+  <th:block th:utext="${sakaiHtmlHead}"></th:block>
+  <style>
+    .container { padding: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f7f7f7; }
+    form.inline input { margin-right: .5rem; }
+    .error { color: #b00020; margin-top: .5rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Contactos</h1>
+
+  <div th:if="${error}" class="error" th:text="${error}"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>Teléfono</th>
+        <th>Rol</th>
+        <th>Etiquetas</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr th:each="c : ${contacts}">
+        <td th:text="${c.fullName}">Nombre</td>
+        <td>
+          <a th:if="${c.email}" th:href="${'mailto:' + c.email}" th:text="${c.email}">correo</a>
+          <span th:if="${!c.email}" class="muted">—</span>
+        </td>
+        <td th:text="${c.phone}">—</td>
+        <td th:text="${c.role}">—</td>
+        <td th:text="${c.tags}">—</td>
+      </tr>
+      <tr th:if="${#lists.isEmpty(contacts)}">
+        <td colspan="5">No hay contactos aún.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div th:if="${canEdit}">
+    <h2>Nuevo contacto</h2>
+    <form class="inline" th:action="@{/create}" method="post" th:object="${newContact}">
+      <input type="text" th:field="*{fullName}" placeholder="Nombre completo" required />
+      <input type="email" th:field="*{email}" placeholder="Email" />
+      <input type="text" th:field="*{phone}" placeholder="Teléfono" />
+      <input type="text" th:field="*{role}" placeholder="Rol" />
+      <input type="text" placeholder="Etiquetas (coma)" oninput="this.form['tagsStr'].value=this.value" />
+      <input type="hidden" name="tagsStr" />
+      <button type="submit">Crear</button>
+    </form>
+    <script>
+      // Convert tagsStr to Contact.tags on submit (simple split by comma)
+      document.querySelector('form').addEventListener('submit', function(ev){
+        var hidden = this.querySelector('input[name="tagsStr"]');
+        if (hidden && hidden.value) {
+          // create additional inputs for each tag
+          hidden.value.split(',').map(function(t){return t.trim();}).filter(Boolean).forEach(function(tag){
+            var i = document.createElement('input');
+            i.type='hidden'; i.name='tags'; i.value=tag; 
+            ev.target.appendChild(i);
+          });
+        }
+      });
+    </script>
+  </div>
+</div>
+</body>
+</html>

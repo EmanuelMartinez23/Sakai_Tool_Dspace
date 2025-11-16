@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<registration>
+  <tool id="sakai.contacts"
+        title="Contactos"
+        description="Contacts DS">
+    <!-- Note: Tool titles and descriptions are internationalized in tools.properties and override these values -->
+    <category name="course" />
+    <category name="project" />
+  </tool>
+</registration>
