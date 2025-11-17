@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="http://java.sun.com/xml/ns/j2ee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd"
+         version="2.4">
+
+    <display-name>dspace-integration-tool</display-name>
+    <description>Sakai Dspace Integración Tool (Velocity stack)</description>
+
+    <!-- Configure standard Spring application contexts. -->
+    <context-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>/WEB-INF/applicationContext.xml</param-value>
+    </context-param>
+
+    <!-- Sakai request filter -->
+    <filter>
+        <filter-name>sakai.request</filter-name>
+        <filter-class>org.sakaiproject.util.RequestFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.dspace.integration</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+    </filter-mapping>
+
+    <!-- the vm handling servlet : used direct by name, not by URL path -->
+    <servlet>
+        <servlet-name>sakai.vm</servlet-name>
+        <servlet-class>org.sakaiproject.vm.VelocityServlet</servlet-class>
+        <init-param>
+            <param-name>properties</param-name>
+            <param-value>velocity.properties</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <!-- Dspace Integration servlet using Chef/Velocity pattern -->
+    <servlet>
+        <servlet-name>sakai.dspace.integration</servlet-name>
+        <servlet-class>org.sakaiproject.dspaceintegration.tool.DSpaceIntegrationAction</servlet-class>
+        <init-param>
+            <param-name>template</param-name>
+            <param-value>dspace/chef_dspace_integration</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <!-- Listeners required by Sakai tools -->
+    <listener>
+        <listener-class>org.sakaiproject.util.ToolListener</listener-class>
+    </listener>
+    <listener>
+        <listener-class>org.sakaiproject.util.SakaiContextLoaderListener</listener-class>
+    </listener>
+
+</web-app>

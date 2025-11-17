@@ -1,0 +1,9 @@
+## Path: /vm/dspace/chef_dspace_integration.vm
+## Minimal Hello World view for Dspace Integración tool
+
+#parse ("/vm/macros.vm")
+
+<div class="portletBody">
+  <h2>Dspace Integración</h2>
+  <p>$!message</p>
+</div>

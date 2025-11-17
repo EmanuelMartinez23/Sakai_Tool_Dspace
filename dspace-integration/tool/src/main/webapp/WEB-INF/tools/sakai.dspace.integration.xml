@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<registration>
+  <tool id="sakai.dspace.integration"
+        title="Dspace Integración"
+        description="Integración básica con DSpace">
+    <!-- Note: Tool titles and descriptions are internationalized in tools.properties and may override these values -->
+    <category name="course" />
+    <category name="project" />
+  </tool>
+</registration>

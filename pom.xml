@@ -124,6 +124,7 @@
                 <module>webservices</module>
                 <module>wicket</module>
                 <module>contacts</module>
+                <module>dspace-integration</module>
             </modules>
         </profile>
         <profile>
