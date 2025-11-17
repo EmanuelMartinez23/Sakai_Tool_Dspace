@@ -1,0 +1,64 @@
+## Velocity template for Contacts tool (aligned with Assignment's Velocity/CHEF stack)
+## Path: /vm/contacts/chef_contacts.vm
+
+#set( $title = $!bundle.getString("contacts.title") )
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>$!title</title>
+</head>
+<body>
+<div class="portletBody">
+  <h1>Contactos</h1>
+
+  <table class="listHier" width="100%" border="0" cellspacing="0" cellpadding="5">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Email</th>
+        <th>Teléfono</th>
+        <th>Rol</th>
+        <th>Etiquetas</th>
+      </tr>
+    </thead>
+    <tbody>
+      #if($contacts && $contacts.size() > 0)
+        #foreach($c in $contacts)
+          <tr>
+            <td>$!c.fullName</td>
+            <td>
+              #if($c.email)
+                <a href="mailto:$!c.email">$!c.email</a>
+              #else
+                &mdash;
+              #end
+            </td>
+            <td>$!c.phone</td>
+            <td>$!c.role</td>
+            <td>$!c.tags</td>
+          </tr>
+        #end
+      #else
+        <tr>
+          <td colspan="5">No hay contactos aún.</td>
+        </tr>
+      #end
+    </tbody>
+  </table>
+
+  #if($canEdit)
+    <h2>Nuevo contacto</h2>
+    <form method="post" action="">
+      <input type="hidden" name="action" value="create" />
+      <input type="text" name="name" placeholder="Nombre completo" required />
+      <input type="email" name="email" placeholder="Email" />
+      <input type="text" name="phone" placeholder="Teléfono" />
+      <input type="text" name="role" placeholder="Rol" />
+      <input type="text" name="tags" placeholder="Etiquetas (coma)" />
+      <button type="submit">Crear</button>
+    </form>
+  #end
+</div>
+</body>
+</html>
