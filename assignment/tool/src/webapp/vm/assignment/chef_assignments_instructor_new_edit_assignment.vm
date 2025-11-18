@@ -364,7 +364,8 @@
             }
         }
 
-        const collapsibleHeaders = document.querySelectorAll('.collapsible');
+        // Exclude DSpace-specific headers to avoid double-binding
+        const collapsibleHeaders = document.querySelectorAll('.collapsible:not(.dspace-community-header):not(.dspace-collection-header)');
         collapsibleHeaders.forEach(header => {
             header.addEventListener('click', function() {
                 toggleCollapse(this);
@@ -582,16 +583,35 @@
                     if (!next) return;
                     var isHidden = next.style.display === 'none' || next.style.display === '';
                     next.style.display = isHidden ? 'block' : 'none';
-                    if (isHidden) header.classList.add('active'); else header.classList.remove('active');
+                    header.classList.toggle('active', isHidden);
+                    // ARIA support
+                    header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+                    next.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
                 }
-                document.addEventListener('DOMContentLoaded', function(){
+                function bindDspaceToggles(){
                     document.querySelectorAll('.dspace-community-header.collapsible').forEach(function(el){
+                        if (el.__dspaceBound) return; el.__dspaceBound = true;
+                        el.setAttribute('role', 'button');
+                        el.setAttribute('tabindex', '0');
+                        el.setAttribute('aria-expanded', 'false');
                         el.addEventListener('click', function(){ toggleNextContent(el); });
+                        el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNextContent(el); }});
                     });
                     document.querySelectorAll('.dspace-collection-header.collapsible').forEach(function(el){
+                        if (el.__dspaceBound) return; el.__dspaceBound = true;
+                        el.setAttribute('role', 'button');
+                        el.setAttribute('tabindex', '0');
+                        el.setAttribute('aria-expanded', 'false');
                         el.addEventListener('click', function(){ toggleNextContent(el); });
+                        el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNextContent(el); }});
                     });
-                });
+                }
+                // Bind immediately if DOM is already ready, otherwise on DOMContentLoaded
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', bindDspaceToggles);
+                } else {
+                    bindDspaceToggles();
+                }
             })();
         </script>
 
@@ -1900,6 +1920,7 @@ function showExternalIframe(title, doreload) {
 			#buttonBar()
 		</div>
 		<input type="hidden" name="sakai_csrf_token" value="$sakai_csrf_token" />
+	</div>
 	</form>
 </div>
 </div>
