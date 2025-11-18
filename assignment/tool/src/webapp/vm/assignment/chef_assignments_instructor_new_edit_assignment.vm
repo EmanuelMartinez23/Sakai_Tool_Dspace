@@ -254,6 +254,21 @@
 			</div>
 		#end
 
+		<!-- Dspace static section (placeholder) -->
+		<h4>Dspace</h4>
+		<div class="indnt1">
+			<ul class="attachList">
+				<li><strong>Comunidad 1</strong>
+					<ul class="attachList">
+						<li>Colección 1</li>
+						<li>Colección 2</li>
+						<li>Colección 3</li>
+					</ul>
+				</li>
+			</ul>
+			<p class="text-muted small">Sección estática de DSpace; integración futura para adjuntar archivos desde DSpace.</p>
+		</div>
+
 		<h4>
 			$tlang.getString("gen.availability")
 		</h4>
