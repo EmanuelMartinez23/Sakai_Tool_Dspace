@@ -53,82 +53,124 @@ public class DSpaceClientService {
     }
 
     public synchronized List<Map<String, Object>> getDSpaceTree(boolean forceRefresh) {
+        log.info("[DSpace] === INICIANDO getDSpaceTree ===");
+        log.info("[DSpace] forceRefresh: {}, cachedTree: {}", forceRefresh, cachedTree != null);
+
         if (!forceRefresh && cachedTree != null && cachedTree.ts.plusMillis(ttlMillis).isAfter(Instant.now())) {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> val = (List<Map<String, Object>>) cachedTree.value;
+            log.info("[DSpace] ✅ Usando cache existente con {} comunidades", val.size());
             return val;
         }
+
         try {
+            log.info("[DSpace] 🔐 Iniciando autenticación...");
             String token = authenticate();
             if (token == null || token.isEmpty()) {
-                log.warn("[DSpace] No Authorization token obtained");
+                log.warn("[DSpace] ❌ No se obtuvo token de autorización");
                 return new ArrayList<>();
             }
-            // Communities
+            log.info("[DSpace] ✅ Autenticación exitosa, token obtenido");
+
+            log.info("[DSpace] 📋 Obteniendo comunidades...");
             Map<String, Object> commResp = getJson(apiBase + "/core/communities?size=1000", token);
             List<Map<String, Object>> communities = extractEmbedded(commResp, "communities");
+            log.info("[DSpace] 📊 Comunidades obtenidas: {}", communities != null ? communities.size() : 0);
 
             List<Map<String, Object>> tree = new ArrayList<>();
             if (communities != null) {
+                log.info("[DSpace] 🔄 Procesando {} comunidades", communities.size());
+
                 for (Map<String, Object> c : communities) {
                     String cUuid = str(c.get("uuid"));
                     String cName = str(c.get("name"));
+                    log.info("[DSpace]   🏢 Procesando comunidad: {} ({})", cName, cUuid);
+
                     Map<String, Object> cNode = new HashMap<>();
                     cNode.put("uuid", cUuid);
                     cNode.put("name", cName);
                     List<Map<String, Object>> collections = new ArrayList<>();
+
                     // Collections for community
+                    log.info("[DSpace]     📁 Obteniendo colecciones para comunidad {}", cUuid);
                     Map<String, Object> colResp = getJson(apiBase + "/core/communities/" + cUuid + "/collections?size=1000", token);
                     List<Map<String, Object>> colList = extractEmbedded(colResp, "collections");
+                    log.info("[DSpace]     📊 Colecciones encontradas: {}", colList != null ? colList.size() : 0);
+
                     if (colList != null) {
                         for (Map<String, Object> col : colList) {
                             String colUuid = str(col.get("uuid"));
                             String colName = str(col.get("name"));
+                            log.info("[DSpace]       📂 Procesando colección: {} ({})", colName, colUuid);
+
                             Map<String, Object> colNode = new HashMap<>();
                             colNode.put("uuid", colUuid);
                             colNode.put("name", colName);
                             List<Map<String, Object>> items = new ArrayList<>();
-                            // We will filter items by owningCollection matching this colUuid.
-                            // Fetch items lazily: pull all items from /core/items?size=1000 and filter by owning link.
-                            // Note: This is O(N * owningCollection GET). For now acceptable; can optimize with index later.
+
+                            log.info("[DSpace]         📄 Obteniendo todos los items...");
                             Map<String, Object> itemsResp = getJson(apiBase + "/core/items?size=1000", token);
                             List<Map<String, Object>> allItems = extractEmbedded(itemsResp, "items");
+                            log.info("[DSpace]         📊 Total de items encontrados: {}", allItems != null ? allItems.size() : 0);
+
                             if (allItems != null) {
+                                int itemsInCollection = 0;
                                 for (Map<String, Object> item : allItems) {
                                     // Resolve owningCollection uuid
                                     String owningHref = linkHref(item, "owningCollection");
                                     String owningUuid = null;
                                     if (owningHref != null) {
+                                        log.debug("[DSpace]           🔍 Verificando owningCollection: {}", owningHref);
                                         Map<String, Object> owningResp = getJson(owningHref, token);
                                         owningUuid = str(owningResp == null ? null : owningResp.get("uuid"));
                                     }
-                                    if (owningUuid == null || !owningUuid.equals(colUuid)) continue;
+                                    if (owningUuid == null || !owningUuid.equals(colUuid)) {
+                                        continue;
+                                    }
+
                                     // Build item node
                                     String itemUuid = str(item.get("uuid"));
                                     String title = extractTitle(item);
+                                    log.info("[DSpace]           📝 Procesando item: {} ({})", title, itemUuid);
+
                                     Map<String, Object> itemNode = new HashMap<>();
                                     itemNode.put("uuid", itemUuid);
                                     itemNode.put("title", title);
                                     List<Map<String, Object>> bitstreams = new ArrayList<>();
+
                                     // bundles
                                     String bundlesHref = linkHref(item, "bundles");
                                     if (bundlesHref != null) {
+                                        log.debug("[DSpace]             📦 Obteniendo bundles para item {}", itemUuid);
                                         Map<String, Object> bundlesResp = getJson(bundlesHref + (bundlesHref.contains("?")?"&":"?") + "size=1000", token);
                                         List<Map<String, Object>> bundles = extractEmbedded(bundlesResp, "bundles");
+                                        log.debug("[DSpace]             📊 Bundles encontrados: {}", bundles != null ? bundles.size() : 0);
+
                                         if (bundles != null) {
                                             for (Map<String, Object> b : bundles) {
                                                 String bundleName = str(b.get("name"));
-                                                if (bundleName == null || !"ORIGINAL".equalsIgnoreCase(bundleName)) continue;
+                                                if (bundleName == null || !"ORIGINAL".equalsIgnoreCase(bundleName)) {
+                                                    log.debug("[DSpace]               ⏩ Saltando bundle: {}", bundleName);
+                                                    continue;
+                                                }
+                                                log.debug("[DSpace]               📎 Procesando bundle ORIGINAL");
+
                                                 String bitsHref = linkHref(b, "bitstreams");
                                                 if (bitsHref != null) {
+                                                    log.debug("[DSpace]                 📎 Obteniendo bitstreams...");
                                                     Map<String, Object> bitsResp = getJson(bitsHref + (bitsHref.contains("?")?"&":"?") + "size=1000", token);
                                                     List<Map<String, Object>> bits = extractEmbedded(bitsResp, "bitstreams");
+                                                    log.debug("[DSpace]                 📊 Bitstreams encontrados: {}", bits != null ? bits.size() : 0);
+
                                                     if (bits != null) {
                                                         for (Map<String, Object> bs : bits) {
                                                             Map<String, Object> bn = new HashMap<>();
                                                             String bsUuid = str(bs.get("uuid"));
+                                                            String bsName = str(bs.get("name"));
+                                                            log.info("[DSpace]                   📄 Bitstream: {} ({})", bsName, bsUuid);
+
                                                             bn.put("uuid", bsUuid);
-                                                            bn.put("name", str(bs.get("name")));
+                                                            bn.put("name", bsName);
                                                             bn.put("sizeBytes", bs.get("sizeBytes"));
                                                             bn.put("mimeType", str(bs.get("mimeType")));
                                                             bn.put("bundleName", bundleName);
@@ -140,23 +182,37 @@ public class DSpaceClientService {
                                             }
                                         }
                                     }
+
                                     itemNode.put("bitstreams", bitstreams);
                                     items.add(itemNode);
+                                    itemsInCollection++;
+                                    log.info("[DSpace]           ✅ Item procesado: {} ({} bitstreams)", title, bitstreams.size());
                                 }
+                                log.info("[DSpace]         ✅ Items en colección {}: {}", colName, itemsInCollection);
                             }
+
                             colNode.put("items", items);
                             collections.add(colNode);
+                            log.info("[DSpace]       ✅ Colección procesada: {} ({} items)", colName, items.size());
                         }
                     }
+
                     cNode.put("collections", collections);
                     tree.add(cNode);
+                    log.info("[DSpace]     ✅ Comunidad procesada: {} ({} colecciones)", cName, collections.size());
                 }
             }
+
             this.cachedTree = new CacheEntry(tree);
+            log.info("[DSpace] ✅ Árbol DSpace construido exitosamente: {} comunidades, cache actualizado", tree.size());
             return tree;
+
         } catch (Exception e) {
-            log.warn("[DSpace] Error building tree: {}", e.toString());
+            log.error("[DSpace] ❌ Error crítico construyendo árbol DSpace", e);
+            log.warn("[DSpace] ⚠️  Error building tree: {}", e.toString());
             return new ArrayList<>();
+        } finally {
+            log.info("[DSpace] === FINALIZANDO getDSpaceTree ===");
         }
     }
 
