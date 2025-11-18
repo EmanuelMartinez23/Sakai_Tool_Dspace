@@ -356,25 +356,20 @@
     }
 </style>
 <script>
-    // JavaScript para funcionalidades de colapso/expansión
     document.addEventListener('DOMContentLoaded', function() {
-        // Función para alternar colapso/expansión
         function toggleCollapse(element) {
             const content = element.nextElementSibling;
             const isActive = element.classList.contains('active');
 
             if (isActive) {
-                // Colapsar
                 element.classList.remove('active');
                 content.style.display = 'none';
             } else {
-                // Expandir
                 element.classList.add('active');
                 content.style.display = 'block';
             }
         }
 
-        // Agregar event listeners a todos los headers colapsables
         const collapsibleHeaders = document.querySelectorAll('.collapsible');
         collapsibleHeaders.forEach(header => {
             header.addEventListener('click', function() {
@@ -382,11 +377,6 @@
             });
         });
 
-        // Opcional: Expandir la primera comunidad por defecto
-        const firstCommunity = document.querySelector('.dspace-community-header');
-        if (firstCommunity) {
-            toggleCollapse(firstCommunity);
-        }
     });
 </script>
 
@@ -509,7 +499,6 @@
 			</div>
 		#end
 
-		<!-- Dspace static section (placeholder) -->
         <!-- Dspace dynamic section -->
         <h4>DSpace</h4>
         <div class="dspace-section">
@@ -543,8 +532,20 @@
                                     <tr class="table-row-even">
                                         <td>Item 1</td>
                                         <td>
-                                            Archivo1.txt
-                                            <a href="#" class="bitstream-link">[Link]</a>
+                                            <div class="bitstream-list">
+                                                <div class="bitstream-item">
+                                                    <span class="file-name">Archivo1.txt</span>
+                                                    <a href="#" class="bitstream-link">[Link]</a>
+                                                </div>
+                                                <div class="bitstream-item">
+                                                    <span class="file-name">FotoUAM.png</span>
+                                                    <a href="#" class="bitstream-link">[Link]</a>
+                                                </div>
+                                                <div class="bitstream-item">
+                                                    <span class="file-name">Documento.pdf</span>
+                                                    <a href="#" class="bitstream-link">[Link]</a>
+                                                </div>
+                                            </div>
                                         </td>
                                     </tr>
                                     <tr class="table-row-odd">
