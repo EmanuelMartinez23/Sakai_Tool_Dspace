@@ -255,19 +255,163 @@
 		#end
 
 		<!-- Dspace static section (placeholder) -->
-		<h4>Dspace</h4>
-		<div class="indnt1">
-			<ul class="attachList">
-				<li><strong>Comunidad 1</strong>
-					<ul class="attachList">
-						<li>Colección 1</li>
-						<li>Colección 2</li>
-						<li>Colección 3</li>
-					</ul>
-				</li>
-			</ul>
-			<p class="text-muted small">Sección estática de DSpace; integración futura para adjuntar archivos desde DSpace.</p>
-		</div>
+        <h4>DSpace</h4>
+        <div class="dspace-section">
+            <div class="dspace-container">
+                <!-- Community 1 -->
+                <div class="dspace-community">
+                    <div class="dspace-community-header">
+                        <i class="fa fa-users icon"></i>
+                        <span class="community-name">Comunidad 1</span>
+                    </div>
+
+                    <div class="dspace-collections">
+                        <!-- Collection 1 -->
+                        <div class="dspace-collection">
+                            <div class="dspace-collection-header">
+                                <i class="fa fa-folder icon"></i>
+                                <span class="collection-name">Colección 1</span>
+                            </div>
+
+                            <div class="dspace-items-table-container">
+                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                    <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Bitstreams</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td>Item 1</td>
+                                        <td>
+                                            Archivo1.txt
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Item 2</td>
+                                        <td>
+                                            Documento.pdf
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Item 3</td>
+                                        <td>
+                                            Imagen.jpg
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Collection 2 -->
+                        <div class="dspace-collection">
+                            <div class="dspace-collection-header">
+                                <i class="fa fa-folder icon"></i>
+                                <span class="collection-name">Colección 2</span>
+                            </div>
+
+                            <div class="dspace-items-table-container">
+                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                    <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Bitstreams</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td>Item 1</td>
+                                        <td>
+                                            Archivo1.txt
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Item 2</td>
+                                        <td>
+                                            Datos.csv
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Community 2 -->
+                <div class="dspace-community">
+                    <div class="dspace-community-header">
+                        <i class="fa fa-users icon"></i>
+                        <span class="community-name">Comunidad 2</span>
+                    </div>
+
+                    <div class="dspace-collections">
+                        <!-- Collection 1 -->
+                        <div class="dspace-collection">
+                            <div class="dspace-collection-header">
+                                <i class="fa fa-folder icon"></i>
+                                <span class="collection-name">Colección 1</span>
+                            </div>
+
+                            <div class="dspace-items-table-container">
+                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                    <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Bitstreams</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td>Item 1</td>
+                                        <td>
+                                            Archivo1.txt
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Collection 2 -->
+                        <div class="dspace-collection">
+                            <div class="dspace-collection-header">
+                                <i class="fa fa-folder icon"></i>
+                                <span class="collection-name">Colección 2</span>
+                            </div>
+
+                            <div class="dspace-items-table-container">
+                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                    <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Bitstreams</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td>Item 1</td>
+                                        <td>
+                                            Archivo1.txt
+                                            <a href="#" class="bitstream-link">[Link]</a>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
 		<h4>
 			$tlang.getString("gen.availability")
