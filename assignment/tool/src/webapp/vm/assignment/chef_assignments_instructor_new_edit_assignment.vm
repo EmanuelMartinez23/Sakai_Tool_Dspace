@@ -543,7 +543,7 @@
                                                                                     <div class="bitstream-item">
                                                                                         <span class="file-name">$!b.name</span>
                                                                                         #if($b.downloadUrl)
-                                                                                            <a href="$!b.downloadUrl" target="_blank" class="bitstream-link">[Link]</a>
+                                                                                            <a href="$!b.downloadUrl"  download="$!b.name"  target="_blank" class="bitstream-link">[Link]</a>
                                                                                         #end
                                                                                     </div>
                                                                                 #end
