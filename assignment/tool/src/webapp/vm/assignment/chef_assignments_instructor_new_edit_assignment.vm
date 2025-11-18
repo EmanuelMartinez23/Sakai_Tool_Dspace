@@ -135,6 +135,241 @@
 	}
 	focus_path = [ '$fField' ];
 </script>
+
+<style>
+    /* DSpace Section Styles */
+    .dspace-section {
+        margin: 1rem 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f9f9f9;
+    }
+
+    .dspace-container {
+        padding: 1rem;
+    }
+
+    .dspace-community {
+        margin-bottom: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: white;
+        overflow: hidden;
+    }
+
+    .dspace-community-header {
+        background: #2c5aa0;
+        color: white;
+        padding: 0.75rem 1rem;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        user-select: none;
+    }
+
+    .dspace-community-header:hover {
+        background: #1e3d6f;
+    }
+
+    .dspace-community-header .icon {
+        margin-right: 0.5rem;
+    }
+
+    .dspace-community-header .chevron {
+        margin-right: 0.5rem;
+        transition: transform 0.3s ease;
+        font-size: 0.8em;
+    }
+
+    .dspace-collections {
+        padding: 0;
+        background: #f8f9fa;
+    }
+
+    .dspace-collection {
+        margin: 0;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .dspace-collection:last-child {
+        border-bottom: none;
+    }
+
+    .dspace-collection-header {
+        background: #6c757d;
+        color: white;
+        padding: 0.6rem 1rem 0.6rem 2rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        user-select: none;
+    }
+
+    .dspace-collection-header:hover {
+        background: #5a6268;
+    }
+
+    .dspace-collection-header .icon {
+        margin-right: 0.5rem;
+        font-size: 0.9em;
+    }
+
+    .dspace-collection-header .chevron {
+        margin-right: 0.5rem;
+        transition: transform 0.3s ease;
+        font-size: 0.7em;
+    }
+
+    .dspace-items-table-container {
+        max-height: 300px;
+        overflow-y: auto;
+        margin: 0;
+        border: none;
+        border-radius: 0;
+        background: white;
+    }
+
+    .dspace-items-table {
+        margin: 0;
+        font-size: 0.875rem;
+        border: none;
+    }
+
+    .dspace-items-table th {
+        background: #e9ecef;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        font-weight: 600;
+        border: none;
+    }
+
+    .dspace-items-table td {
+        vertical-align: middle;
+        padding: 0.5rem;
+        border: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .dspace-items-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .bitstream-link {
+        color: #007bff;
+        text-decoration: none;
+        font-size: 0.8em;
+        margin-left: 0.5rem;
+    }
+
+    .bitstream-link:hover {
+        text-decoration: underline;
+        color: #0056b3;
+    }
+
+    /* Collapsible states */
+    .collapsible.active .chevron {
+        transform: rotate(90deg);
+    }
+
+    .collapsible-content {
+        transition: all 0.3s ease;
+    }
+
+    /* Scrollbar styling */
+    .dspace-items-table-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .dspace-items-table-container::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .dspace-items-table-container::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+    }
+
+    .dspace-items-table-container::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .dspace-items-table-container {
+            max-height: 200px;
+        }
+
+        .dspace-items-table {
+            font-size: 0.8rem;
+        }
+
+        .dspace-community-header,
+        .dspace-collection-header {
+            padding: 0.6rem 0.75rem;
+        }
+
+        .dspace-collection-header {
+            padding-left: 1.5rem;
+        }
+    }
+
+    /* Animation for smooth expansion */
+    .collapsible-content {
+        animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<script>
+    // JavaScript para funcionalidades de colapso/expansión
+    document.addEventListener('DOMContentLoaded', function() {
+        // Función para alternar colapso/expansión
+        function toggleCollapse(element) {
+            const content = element.nextElementSibling;
+            const isActive = element.classList.contains('active');
+
+            if (isActive) {
+                // Colapsar
+                element.classList.remove('active');
+                content.style.display = 'none';
+            } else {
+                // Expandir
+                element.classList.add('active');
+                content.style.display = 'block';
+            }
+        }
+
+        // Agregar event listeners a todos los headers colapsables
+        const collapsibleHeaders = document.querySelectorAll('.collapsible');
+        collapsibleHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                toggleCollapse(this);
+            });
+        });
+
+        // Opcional: Expandir la primera comunidad por defecto
+        const firstCommunity = document.querySelector('.dspace-community-header');
+        if (firstCommunity) {
+            toggleCollapse(firstCommunity);
+        }
+    });
+</script>
+
 #javascript("/library/js/lang-datepicker/lang-datepicker.js")
 ## Include other javascript specific to this page
 #javascript("/sakai-assignment-tool/js/instructorNewEdit.js")
@@ -255,25 +490,28 @@
 		#end
 
 		<!-- Dspace static section (placeholder) -->
+        <!-- Dspace dynamic section -->
         <h4>DSpace</h4>
         <div class="dspace-section">
             <div class="dspace-container">
                 <!-- Community 1 -->
                 <div class="dspace-community">
-                    <div class="dspace-community-header">
+                    <div class="dspace-community-header collapsible">
+                        <i class="fa fa-chevron-right chevron"></i>
                         <i class="fa fa-users icon"></i>
                         <span class="community-name">Comunidad 1</span>
                     </div>
 
-                    <div class="dspace-collections">
+                    <div class="dspace-collections collapsible-content" style="display: none;">
                         <!-- Collection 1 -->
                         <div class="dspace-collection">
-                            <div class="dspace-collection-header">
+                            <div class="dspace-collection-header collapsible">
+                                <i class="fa fa-chevron-right chevron"></i>
                                 <i class="fa fa-folder icon"></i>
                                 <span class="collection-name">Colección 1</span>
                             </div>
 
-                            <div class="dspace-items-table-container">
+                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
                                 <table class="dspace-items-table table table-striped table-bordered table-sm">
                                     <thead>
                                     <tr>
@@ -310,12 +548,13 @@
 
                         <!-- Collection 2 -->
                         <div class="dspace-collection">
-                            <div class="dspace-collection-header">
+                            <div class="dspace-collection-header collapsible">
+                                <i class="fa fa-chevron-right chevron"></i>
                                 <i class="fa fa-folder icon"></i>
                                 <span class="collection-name">Colección 2</span>
                             </div>
 
-                            <div class="dspace-items-table-container">
+                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
                                 <table class="dspace-items-table table table-striped table-bordered table-sm">
                                     <thead>
                                     <tr>
@@ -347,20 +586,22 @@
 
                 <!-- Community 2 -->
                 <div class="dspace-community">
-                    <div class="dspace-community-header">
+                    <div class="dspace-community-header collapsible">
+                        <i class="fa fa-chevron-right chevron"></i>
                         <i class="fa fa-users icon"></i>
                         <span class="community-name">Comunidad 2</span>
                     </div>
 
-                    <div class="dspace-collections">
+                    <div class="dspace-collections collapsible-content" style="display: none;">
                         <!-- Collection 1 -->
                         <div class="dspace-collection">
-                            <div class="dspace-collection-header">
+                            <div class="dspace-collection-header collapsible">
+                                <i class="fa fa-chevron-right chevron"></i>
                                 <i class="fa fa-folder icon"></i>
                                 <span class="collection-name">Colección 1</span>
                             </div>
 
-                            <div class="dspace-items-table-container">
+                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
                                 <table class="dspace-items-table table table-striped table-bordered table-sm">
                                     <thead>
                                     <tr>
@@ -383,12 +624,13 @@
 
                         <!-- Collection 2 -->
                         <div class="dspace-collection">
-                            <div class="dspace-collection-header">
+                            <div class="dspace-collection-header collapsible">
+                                <i class="fa fa-chevron-right chevron"></i>
                                 <i class="fa fa-folder icon"></i>
                                 <span class="collection-name">Colección 2</span>
                             </div>
 
-                            <div class="dspace-items-table-container">
+                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
                                 <table class="dspace-items-table table table-striped table-bordered table-sm">
                                     <thead>
                                     <tr>
