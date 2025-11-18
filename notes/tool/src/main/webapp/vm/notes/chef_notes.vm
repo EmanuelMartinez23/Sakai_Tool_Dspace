@@ -1,0 +1,10 @@
+## Path: /vm/notes/chef_notes.vm
+## Minimal Hello World view for Notes tool (Velocity/CHEF)
+
+#parse ("/vm/macros.vm")
+
+<div class="portletBody">
+  <h2>$!title</h2>
+  <p>$!message</p>
+  <p class="muted">Site: $!siteId</p>
+</div>

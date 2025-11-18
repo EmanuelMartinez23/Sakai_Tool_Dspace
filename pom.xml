@@ -125,6 +125,7 @@
                 <module>wicket</module>
                 <module>contacts</module>
                 <module>dspace-integration</module>
+                <module>notes</module>
             </modules>
         </profile>
         <profile>
