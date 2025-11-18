@@ -217,39 +217,123 @@ public class DSpaceClientService {
     }
 
     private String authenticate() throws IOException {
+        log.info("[DSpace] 🔐 INICIANDO PROCESO DE AUTENTICACIÓN");
+        log.info("[DSpace] 📍 URL base: {}", apiBase);
+        log.info("[DSpace] 👤 Usuario: {}", email);
+
         // 1) GET /security/csrf to obtain cookie value
+        log.info("[DSpace] 📥 Paso 1: Obteniendo token CSRF desde: {}/security/csrf", apiBase);
         HttpURLConnection con1 = (HttpURLConnection) new URL(apiBase + "/security/csrf").openConnection();
         con1.setRequestMethod("GET");
         con1.setInstanceFollowRedirects(false);
         con1.setDoInput(true);
-        int code1 = con1.getResponseCode();
-        String setCookie = con1.getHeaderField("Set-Cookie");
-        String xsrfCookie = extractXsrfCookie(setCookie);
-        safeClose(con1);
-        if (xsrfCookie == null) {
-            log.warn("[DSpace] No XSRF cookie received, code {}", code1);
-            return null;
+
+        try {
+            int code1 = con1.getResponseCode();
+            log.info("[DSpace] 📋 Código de respuesta CSRF: {}", code1);
+
+            String setCookie = con1.getHeaderField("Set-Cookie");
+            log.info("[DSpace] 🍪 Header Set-Cookie recibido: {}", setCookie);
+
+            // Log todas las cabeceras para debugging
+            log.debug("[DSpace] 📨 Todas las cabeceras de respuesta CSRF:");
+            Map<String, List<String>> headers = con1.getHeaderFields();
+            for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
+                log.debug("[DSpace]   {}: {}", entry.getKey(), entry.getValue());
+            }
+
+            String xsrfCookie = extractXsrfCookie(setCookie);
+            log.info("[DSpace] 🔑 Token XSRF extraído: {}", xsrfCookie != null ? xsrfCookie.substring(0, Math.min(10, xsrfCookie.length())) + "..." : "null");
+
+            safeClose(con1);
+
+            if (xsrfCookie == null) {
+                log.error("[DSpace] ❌ No se recibió cookie XSRF, código HTTP: {}", code1);
+                log.error("[DSpace] 💡 Posibles causas: URL incorrecta, servidor no responde, problemas de red");
+                return null;
+            }
+
+            log.info("[DSpace] ✅ Token CSRF obtenido exitosamente");
+
+            // 2) POST /authn/login with headers
+            log.info("[DSpace] 📤 Paso 2: Enviando credenciales de login a: {}/authn/login", apiBase);
+            HttpURLConnection con2 = (HttpURLConnection) new URL(apiBase + "/authn/login").openConnection();
+            con2.setRequestMethod("POST");
+            con2.setInstanceFollowRedirects(false);
+            con2.setDoOutput(true);
+
+            // Configurar headers
+            con2.setRequestProperty("X-XSRF-TOKEN", xsrfCookie);
+            con2.setRequestProperty("Cookie", "DSPACE-XSRF-COOKIE=" + xsrfCookie);
+            con2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+            log.info("[DSpace] 📝 Headers configurados:");
+            log.info("[DSpace]   X-XSRF-TOKEN: {}...", xsrfCookie.substring(0, Math.min(10, xsrfCookie.length())));
+            log.info("[DSpace]   Cookie: DSPACE-XSRF-COOKIE={}...", xsrfCookie.substring(0, Math.min(10, xsrfCookie.length())));
+            log.info("[DSpace]   Content-Type: application/x-www-form-urlencoded");
+
+            String body = "user=" + urlEncode(email) + "&password=" + urlEncode(password);
+            log.info("[DSpace] 👤 Credenciales - Usuario: {}, Password length: {}", email, password != null ? password.length() : 0);
+            log.debug("[DSpace] 📦 Body de login (password enmascarado): user={}&password=***", urlEncode(email));
+
+            try (OutputStream os = con2.getOutputStream()) {
+                os.write(body.getBytes(StandardCharsets.UTF_8));
+                log.info("[DSpace] ✅ Body de login enviado exitosamente");
+            } catch (IOException e) {
+                log.error("[DSpace] ❌ Error enviando body de login: {}", e.getMessage());
+                safeClose(con2);
+                return null;
+            }
+
+            int loginResponseCode = con2.getResponseCode();
+            log.info("[DSpace] 📋 Código de respuesta login: {}", loginResponseCode);
+
+            // Log todas las cabeceras de la respuesta de login
+            log.info("[DSpace] 📨 Cabeceras de respuesta de login:");
+            Map<String, List<String>> loginHeaders = con2.getHeaderFields();
+            for (Map.Entry<String, List<String>> entry : loginHeaders.entrySet()) {
+                if (entry.getKey() != null) {
+                    log.info("[DSpace]   {}: {}", entry.getKey(), entry.getValue());
+                } else {
+                    log.info("[DSpace]   Status: {}", entry.getValue());
+                }
+            }
+
+            String authHeader = con2.getHeaderField("Authorization");
+            log.info("[DSpace] 🎫 Header Authorization recibido: {}", authHeader);
+
+            safeClose(con2);
+
+            if (authHeader == null) {
+                log.error("[DSpace] ❌ Header Authorization no encontrado en la respuesta");
+                log.error("[DSpace] 💡 Posibles causas:");
+                log.error("[DSpace]   - Credenciales incorrectas");
+                log.error("[DSpace]   - Servidor DSpace no configurado correctamente");
+                log.error("[DSpace]   - Problemas de CORS/seguridad");
+                log.error("[DSpace]   - Ruta de autenticación incorrecta");
+                return null;
+            }
+
+            if (!authHeader.toLowerCase().startsWith("bearer ")) {
+                log.error("[DSpace] ❌ Header Authorization no contiene Bearer token");
+                log.error("[DSpace]   Valor recibido: {}", authHeader);
+                log.error("[DSpace]   Esperado: 'Bearer <token>'");
+                return null;
+            }
+
+            String token = authHeader.substring(7).trim();
+            log.info("[DSpace] ✅ AUTENTICACIÓN EXITOSA - Token obtenido (primeros 10 chars): {}...",
+                    token.substring(0, Math.min(10, token.length())));
+            log.info("[DSpace] 🎉 PROCESO DE AUTENTICACIÓN COMPLETADO");
+
+            return token;
+
+        } catch (IOException e) {
+            log.error("[DSpace] 💥 ERROR de conexión durante autenticación: {}", e.getMessage());
+            log.error("[DSpace] 🔍 Stack trace completo:", e);
+            safeClose(con1);
+            throw e;
         }
-        // 2) POST /authn/login with headers
-        HttpURLConnection con2 = (HttpURLConnection) new URL(apiBase + "/authn/login").openConnection();
-        con2.setRequestMethod("POST");
-        con2.setInstanceFollowRedirects(false);
-        con2.setDoOutput(true);
-        con2.setRequestProperty("X-XSRF-TOKEN", xsrfCookie);
-        con2.setRequestProperty("Cookie", "DSPACE-XSRF-COOKIE=" + xsrfCookie);
-        con2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-        String body = "user=" + urlEncode(email) + "&password=" + urlEncode(password);
-        try (OutputStream os = con2.getOutputStream()) {
-            os.write(body.getBytes(StandardCharsets.UTF_8));
-        }
-        // We need headers; Bearer may appear in headers
-        String authHeader = con2.getHeaderField("Authorization");
-        safeClose(con2);
-        if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer ")) {
-            log.warn("[DSpace] Authorization header not found after login");
-            return null;
-        }
-        return authHeader.substring(7).trim();
     }
 
     private Map<String, Object> getJson(String url, String bearer) throws IOException {
