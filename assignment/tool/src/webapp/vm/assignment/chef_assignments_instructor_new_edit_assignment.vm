@@ -256,7 +256,6 @@
         color: white;
     }
 
-    /* Filas pares - Color más oscuro */
     .table-row-even {
         background-color: #495057 !important;
     }
@@ -265,7 +264,6 @@
         background-color: #5a6268 !important;
     }
 
-    /* Filas impares - Color más claro */
     .table-row-odd {
         background-color: #6c757d !important;
     }
@@ -287,7 +285,6 @@
         color: #a6d2ff !important;
     }
 
-    /* Collapsible states */
     .collapsible.active .chevron {
         transform: rotate(90deg);
     }
@@ -296,7 +293,6 @@
         transition: all 0.3s ease;
     }
 
-    /* Scrollbar styling */
     .dspace-items-table-container::-webkit-scrollbar {
         width: 8px;
     }
@@ -314,7 +310,6 @@
         background: #a8a8a8;
     }
 
-    /* Responsive design */
     @media (max-width: 768px) {
         .dspace-items-table-container {
             max-height: 200px;
@@ -339,7 +334,6 @@
         }
     }
 
-    /* Animation for smooth expansion */
     .collapsible-content {
         animation: fadeIn 0.3s ease;
     }
