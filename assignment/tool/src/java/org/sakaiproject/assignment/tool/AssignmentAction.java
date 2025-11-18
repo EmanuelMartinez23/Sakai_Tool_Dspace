@@ -3030,6 +3030,78 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("sortedBy", sortedBy);
         context.put("sortedAsc", sortedAsc);
 
+        // DSpace dynamic population (optional; controlled by properties)
+        try {
+            boolean dspaceEnabled = serverConfigurationService.getBoolean("assignment.dspace.enabled", false);
+            if (dspaceEnabled) {
+                String apiBase = serverConfigurationService.getString("dspace.api.base", null);
+                String frontBase = serverConfigurationService.getString("dspace.front.base", null);
+                String email = serverConfigurationService.getString("dspace.auth.email", null);
+                String password = serverConfigurationService.getString("dspace.auth.password", null);
+                long ttlSec = serverConfigurationService.getInt("dspace.cache.ttl.seconds", 300);
+                if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(frontBase) && StringUtils.isNotBlank(email) && StringUtils.isNotBlank(password)) {
+                    org.sakaiproject.assignment.tool.dspace.DSpaceClientService dsClient = new org.sakaiproject.assignment.tool.dspace.DSpaceClientService(apiBase, frontBase, email, password, ttlSec * 1000L);
+                    @SuppressWarnings("unchecked")
+                    java.util.List<java.util.Map<String, Object>> dspaceTree = dsClient.getDSpaceTree(false);
+                    context.put("dspaceTree", dspaceTree);
+
+                    // Also provide flat lists for compatibility/use elsewhere if needed
+                    java.util.List<java.util.Map<String, Object>> comms = new java.util.ArrayList<>();
+                    java.util.List<java.util.Map<String, Object>> cols = new java.util.ArrayList<>();
+                    java.util.List<java.util.Map<String, Object>> items = new java.util.ArrayList<>();
+                    java.util.List<java.util.Map<String, Object>> bitstreams = new java.util.ArrayList<>();
+                    for (java.util.Map<String, Object> c : dspaceTree) {
+                        java.util.Map<String, Object> cFlat = new java.util.HashMap<>();
+                        cFlat.put("uuid", c.get("uuid"));
+                        cFlat.put("name", c.get("name"));
+                        comms.add(cFlat);
+                        @SuppressWarnings("unchecked")
+                        java.util.List<java.util.Map<String, Object>> ccols = (java.util.List<java.util.Map<String, Object>>) c.get("collections");
+                        if (ccols != null) {
+                            for (java.util.Map<String, Object> col : ccols) {
+                                java.util.Map<String, Object> colFlat = new java.util.HashMap<>();
+                                colFlat.put("uuid", col.get("uuid"));
+                                colFlat.put("name", col.get("name"));
+                                colFlat.put("communityUuid", c.get("uuid"));
+                                cols.add(colFlat);
+                                @SuppressWarnings("unchecked")
+                                java.util.List<java.util.Map<String, Object>> iis = (java.util.List<java.util.Map<String, Object>>) col.get("items");
+                                if (iis != null) {
+                                    for (java.util.Map<String, Object> it : iis) {
+                                        java.util.Map<String, Object> itFlat = new java.util.HashMap<>();
+                                        itFlat.put("uuid", it.get("uuid"));
+                                        itFlat.put("title", it.get("title"));
+                                        itFlat.put("owningCollectionUuid", col.get("uuid"));
+                                        items.add(itFlat);
+                                        @SuppressWarnings("unchecked")
+                                        java.util.List<java.util.Map<String, Object>> bss = (java.util.List<java.util.Map<String, Object>>) it.get("bitstreams");
+                                        if (bss != null) {
+                                            for (java.util.Map<String, Object> bs : bss) {
+                                                bitstreams.add(bs);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    state.setAttribute("DS_COMMUNITIES", comms);
+                    state.setAttribute("DS_COLLECTIONS", cols);
+                    state.setAttribute("DS_ITEMS", items);
+                    state.setAttribute("DS_BITSTREAMS", bitstreams);
+                    context.put("dspaceCommunities", comms);
+                    context.put("dspaceCollections", cols);
+                    context.put("dspaceItems", items);
+                    context.put("dspaceBitstreams", bitstreams);
+                } else {
+                    log.debug("DSpace integration enabled but missing configuration (apiBase/frontBase/email/password)");
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error while populating DSpace data for assignment editor: {}", e.toString());
+            context.put("dspaceError", "No se pudieron cargar datos de DSpace en este momento.");
+        }
+
         String template = (String) getContext(data).get("template");
         return template + TEMPLATE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT;
     } // build_instructor_new_assignment_context

@@ -497,182 +497,110 @@
         <h4>DSpace</h4>
         <div class="dspace-section">
             <div class="dspace-container">
-                <!-- Community 1 -->
-                <div class="dspace-community">
-                    <div class="dspace-community-header collapsible">
-                        <i class="fa fa-chevron-right chevron"></i>
-                        <i class="fa fa-users icon"></i>
-                        <span class="community-name">Comunidad 1</span>
-                    </div>
+                #if($dspaceError)
+                    <div class="alert alert-warning">$!dspaceError</div>
+                #end
 
-                    <div class="dspace-collections collapsible-content" style="display: none;">
-                        <!-- Collection 1 -->
-                        <div class="dspace-collection">
-                            <div class="dspace-collection-header collapsible">
+                #if($dspaceTree && $dspaceTree.size() > 0)
+                    #foreach($comm in $dspaceTree)
+                        <div class="dspace-community">
+                            <div class="dspace-community-header collapsible">
                                 <i class="fa fa-chevron-right chevron"></i>
-                                <i class="fa fa-folder icon"></i>
-                                <span class="collection-name">Colección 1</span>
+                                <i class="fa fa-users icon"></i>
+                                <span class="community-name">$!comm.name</span>
                             </div>
-
-                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-bordered table-sm">
-                                    <thead>
-                                    <tr>
-                                        <th>Item</th>
-                                        <th>Bitstreams</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr class="table-row-even">
-                                        <td>Item 1</td>
-                                        <td>
-                                            <div class="bitstream-list">
-                                                <div class="bitstream-item">
-                                                    <span class="file-name">Archivo1.txt</span>
-                                                    <a href="#" class="bitstream-link">[Link]</a>
-                                                </div>
-                                                <div class="bitstream-item">
-                                                    <span class="file-name">FotoUAM.png</span>
-                                                    <a href="#" class="bitstream-link">[Link]</a>
-                                                </div>
-                                                <div class="bitstream-item">
-                                                    <span class="file-name">Documento.pdf</span>
-                                                    <a href="#" class="bitstream-link">[Link]</a>
-                                                </div>
+                            <div class="dspace-collections collapsible-content" style="display: none;">
+                                #set($collections = $!comm.collections)
+                                #if($collections && $collections.size() > 0)
+                                    #foreach($col in $collections)
+                                        <div class="dspace-collection">
+                                            <div class="dspace-collection-header collapsible">
+                                                <i class="fa fa-chevron-right chevron"></i>
+                                                <i class="fa fa-folder icon"></i>
+                                                <span class="collection-name">$!col.name</span>
                                             </div>
-                                        </td>
-                                    </tr>
-                                    <tr class="table-row-odd">
-                                        <td>Item 2</td>
-                                        <td>
-                                            Documento.pdf
-                                            <a href="#" class="bitstream-link">[Link]</a>
-                                        </td>
-                                    </tr>
-                                    <tr class="table-row-even">
-                                        <td>Item 3</td>
-                                        <td>
-                                            Imagen.jpg
-                                            <a href="#" class="bitstream-link">[Link]</a>
-                                        </td>
-                                    </tr>
-                                    </tbody>
-                                </table>
+                                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
+                                                #set($items = $!col.items)
+                                                #if($items && $items.size() > 0)
+                                                    <table class="dspace-items-table table table-bordered table-sm">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Item</th>
+                                                                <th>Bitstreams</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            #set($rowClass = "table-row-even")
+                                                            #foreach($it in $items)
+                                                                <tr class="$rowClass">
+                                                                    <td>$!it.title</td>
+                                                                    <td>
+                                                                        #set($bss = $!it.bitstreams)
+                                                                        #if($bss && $bss.size() > 0)
+                                                                            <div class="bitstream-list">
+                                                                                #foreach($b in $bss)
+                                                                                    <div class="bitstream-item">
+                                                                                        <span class="file-name">$!b.name</span>
+                                                                                        #if($b.downloadUrl)
+                                                                                            <a href="$!b.downloadUrl" target="_blank" class="bitstream-link">[Link]</a>
+                                                                                        #end
+                                                                                    </div>
+                                                                                #end
+                                                                            </div>
+                                                                        #else
+                                                                            <span class="text-muted">No hay bitstreams</span>
+                                                                        #end
+                                                                    </td>
+                                                                </tr>
+                                                                #set($rowIndex = $rowIndex + 1)
+                                                            #end
+                                                        </tbody>
+                                                    </table>
+                                                #else
+                                                    <p class="text-muted" style="padding: 0.75rem;">No hay items en esta colección.</p>
+                                                #end
+                                            </div>
+                                        </div>
+                                    #end
+                                #else
+                                    <p class="text-muted" style="padding: 0.75rem;">No hay colecciones en esta comunidad.</p>
+                                #end
                             </div>
                         </div>
-
-                        <!-- Collection 2 -->
-                        <div class="dspace-collection">
-                            <div class="dspace-collection-header collapsible">
-                                <i class="fa fa-chevron-right chevron"></i>
-                                <i class="fa fa-folder icon"></i>
-                                <span class="collection-name">Colección 2</span>
-                            </div>
-
-                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-bordered table-sm">
-                                    <thead>
-                                    <tr>
-                                        <th>Item</th>
-                                        <th>Bitstreams</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr class="table-row-even">
-                                        <td>Item 1</td>
-                                        <td>
-                                            Archivo1.txt
-                                            <a href="#" class="bitstream-link">[Link]</a>
-                                        </td>
-                                    </tr>
-                                    <tr class="table-row-odd">
-                                        <td>Item 2</td>
-                                        <td>
-                                            Datos.csv
-                                            <a href="#" class="bitstream-link">[Link]</a>
-                                        </td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Community 2 -->
-                <div class="dspace-community">
-                    <div class="dspace-community-header collapsible">
-                        <i class="fa fa-chevron-right chevron"></i>
-                        <i class="fa fa-users icon"></i>
-                        <span class="community-name">Comunidad 2</span>
-                    </div>
-
-                    <div class="dspace-collections collapsible-content" style="display: none;">
-                        <!-- Collection 1 -->
-                        <div class="dspace-collection">
-                            <div class="dspace-collection-header collapsible">
-                                <i class="fa fa-chevron-right chevron"></i>
-                                <i class="fa fa-folder icon"></i>
-                                <span class="collection-name">Colección 1</span>
-                            </div>
-
-                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-bordered table-sm">
-                                    <thead>
-                                    <tr>
-                                        <th>Item</th>
-                                        <th>Bitstreams</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr class="table-row-even">
-                                        <td>Item 1</td>
-                                        <td>
-                                            Archivo1.txt
-                                            <a href="#" class="bitstream-link">[Link]</a>
-                                        </td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- Collection 2 -->
-                        <div class="dspace-collection">
-                            <div class="dspace-collection-header collapsible">
-                                <i class="fa fa-chevron-right chevron"></i>
-                                <i class="fa fa-folder icon"></i>
-                                <span class="collection-name">Colección 2</span>
-                            </div>
-
-                            <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-bordered table-sm">
-                                    <thead>
-                                    <tr>
-                                        <th>Item</th>
-                                        <th>Bitstreams</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr class="table-row-even">
-                                        <td>Item 1</td>
-                                        <td>
-                                            Archivo1.txt
-                                            <a href="#" class="bitstream-link">[Link]</a>
-                                        </td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    #end
+                #else
+                    <p class="text-muted">No hay datos de DSpace para mostrar.</p>
+                #end
             </div>
         </div>
 
-		<h4>
-			$tlang.getString("gen.availability")
-		</h4>
+        <script>
+            // Simple collapse/expand behavior for DSpace sections
+            (function(){
+                function toggleNextContent(header){
+                    var next = header.nextElementSibling;
+                    if (!next) return;
+                    var isHidden = next.style.display === 'none' || next.style.display === '';
+                    next.style.display = isHidden ? 'block' : 'none';
+                    if (isHidden) header.classList.add('active'); else header.classList.remove('active');
+                }
+                document.addEventListener('DOMContentLoaded', function(){
+                    document.querySelectorAll('.dspace-community-header.collapsible').forEach(function(el){
+                        el.addEventListener('click', function(){ toggleNextContent(el); });
+                    });
+                    document.querySelectorAll('.dspace-collection-header.collapsible').forEach(function(el){
+                        el.addEventListener('click', function(){ toggleNextContent(el); });
+                    });
+                });
+            })();
+        </script>
+
+        <!-- End Dspace dynamic section -->
+
+        <h4>
+            $tlang.getString("gen.availability")
+        </h4>
+
 		#if ($visible_date_enabled)
 		<div class="form-group row visible-date">
  			<div id="tempVisibleDate" >
@@ -863,7 +791,7 @@
 				</label>
 			</div>
 
-			#if ($!$value_CheckAutoAnnounce.equals("true"))
+			#if ($value_CheckAutoAnnounce)
 			<div id="selectAutoAnnounceOptions" class="indnt3">
 			#else
 			<div id="selectAutoAnnounceOptions" style="display:none" class="indnt3">
@@ -1973,5 +1901,8 @@ function showExternalIframe(title, doreload) {
 		</div>
 		<input type="hidden" name="sakai_csrf_token" value="$sakai_csrf_token" />
 	</form>
+</div>
+</div>
+</div>
 </div>
 <!-- end: chef_assignments_instructor_new_edit_assignment.vm  -->

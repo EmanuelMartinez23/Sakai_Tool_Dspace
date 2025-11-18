@@ -1,0 +1,294 @@
+package org.sakaiproject.assignment.tool.dspace;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Minimal DSpace REST client with light in-memory cache to fetch communities, collections, items and bitstreams.
+ *
+ * Notes:
+ * - Auth flow: GET /security/csrf to get XSRF cookie → POST /authn/login with headers to receive Authorization: Bearer ...
+ * - Uses java.net.HttpURLConnection to avoid extra dependencies in the tool.
+ */
+@Slf4j
+public class DSpaceClientService {
+
+    private final String apiBase; // e.g. http://host:8080/server/api
+    private final String frontBase; // e.g. http://host:4000
+    private final String email;
+    private final String password;
+
+    // simple cache
+    private static class CacheEntry {
+        Instant ts; Object value;
+        CacheEntry(Object v) { this.ts = Instant.now(); this.value = v; }
+    }
+    private final long ttlMillis;
+    private CacheEntry cachedTree;
+
+    public DSpaceClientService(String apiBase, String frontBase, String email, String password, long ttlMillis) {
+        this.apiBase = trimSlash(apiBase);
+        this.frontBase = trimSlash(frontBase);
+        this.email = email;
+        this.password = password;
+        this.ttlMillis = ttlMillis <= 0 ? 300_000L : ttlMillis; // default 5 min
+    }
+
+    private static String trimSlash(String s) {
+        if (s == null) return null;
+        if (s.endsWith("/")) return s.substring(0, s.length()-1);
+        return s;
+    }
+
+    public synchronized List<Map<String, Object>> getDSpaceTree(boolean forceRefresh) {
+        if (!forceRefresh && cachedTree != null && cachedTree.ts.plusMillis(ttlMillis).isAfter(Instant.now())) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> val = (List<Map<String, Object>>) cachedTree.value;
+            return val;
+        }
+        try {
+            String token = authenticate();
+            if (token == null || token.isEmpty()) {
+                log.warn("[DSpace] No Authorization token obtained");
+                return new ArrayList<>();
+            }
+            // Communities
+            Map<String, Object> commResp = getJson(apiBase + "/core/communities?size=1000", token);
+            List<Map<String, Object>> communities = extractEmbedded(commResp, "communities");
+
+            List<Map<String, Object>> tree = new ArrayList<>();
+            if (communities != null) {
+                for (Map<String, Object> c : communities) {
+                    String cUuid = str(c.get("uuid"));
+                    String cName = str(c.get("name"));
+                    Map<String, Object> cNode = new HashMap<>();
+                    cNode.put("uuid", cUuid);
+                    cNode.put("name", cName);
+                    List<Map<String, Object>> collections = new ArrayList<>();
+                    // Collections for community
+                    Map<String, Object> colResp = getJson(apiBase + "/core/communities/" + cUuid + "/collections?size=1000", token);
+                    List<Map<String, Object>> colList = extractEmbedded(colResp, "collections");
+                    if (colList != null) {
+                        for (Map<String, Object> col : colList) {
+                            String colUuid = str(col.get("uuid"));
+                            String colName = str(col.get("name"));
+                            Map<String, Object> colNode = new HashMap<>();
+                            colNode.put("uuid", colUuid);
+                            colNode.put("name", colName);
+                            List<Map<String, Object>> items = new ArrayList<>();
+                            // We will filter items by owningCollection matching this colUuid.
+                            // Fetch items lazily: pull all items from /core/items?size=1000 and filter by owning link.
+                            // Note: This is O(N * owningCollection GET). For now acceptable; can optimize with index later.
+                            Map<String, Object> itemsResp = getJson(apiBase + "/core/items?size=1000", token);
+                            List<Map<String, Object>> allItems = extractEmbedded(itemsResp, "items");
+                            if (allItems != null) {
+                                for (Map<String, Object> item : allItems) {
+                                    // Resolve owningCollection uuid
+                                    String owningHref = linkHref(item, "owningCollection");
+                                    String owningUuid = null;
+                                    if (owningHref != null) {
+                                        Map<String, Object> owningResp = getJson(owningHref, token);
+                                        owningUuid = str(owningResp == null ? null : owningResp.get("uuid"));
+                                    }
+                                    if (owningUuid == null || !owningUuid.equals(colUuid)) continue;
+                                    // Build item node
+                                    String itemUuid = str(item.get("uuid"));
+                                    String title = extractTitle(item);
+                                    Map<String, Object> itemNode = new HashMap<>();
+                                    itemNode.put("uuid", itemUuid);
+                                    itemNode.put("title", title);
+                                    List<Map<String, Object>> bitstreams = new ArrayList<>();
+                                    // bundles
+                                    String bundlesHref = linkHref(item, "bundles");
+                                    if (bundlesHref != null) {
+                                        Map<String, Object> bundlesResp = getJson(bundlesHref + (bundlesHref.contains("?")?"&":"?") + "size=1000", token);
+                                        List<Map<String, Object>> bundles = extractEmbedded(bundlesResp, "bundles");
+                                        if (bundles != null) {
+                                            for (Map<String, Object> b : bundles) {
+                                                String bundleName = str(b.get("name"));
+                                                if (bundleName == null || !"ORIGINAL".equalsIgnoreCase(bundleName)) continue;
+                                                String bitsHref = linkHref(b, "bitstreams");
+                                                if (bitsHref != null) {
+                                                    Map<String, Object> bitsResp = getJson(bitsHref + (bitsHref.contains("?")?"&":"?") + "size=1000", token);
+                                                    List<Map<String, Object>> bits = extractEmbedded(bitsResp, "bitstreams");
+                                                    if (bits != null) {
+                                                        for (Map<String, Object> bs : bits) {
+                                                            Map<String, Object> bn = new HashMap<>();
+                                                            String bsUuid = str(bs.get("uuid"));
+                                                            bn.put("uuid", bsUuid);
+                                                            bn.put("name", str(bs.get("name")));
+                                                            bn.put("sizeBytes", bs.get("sizeBytes"));
+                                                            bn.put("mimeType", str(bs.get("mimeType")));
+                                                            bn.put("bundleName", bundleName);
+                                                            bn.put("downloadUrl", frontBase + "/bitstreams/" + bsUuid + "/download");
+                                                            bitstreams.add(bn);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    itemNode.put("bitstreams", bitstreams);
+                                    items.add(itemNode);
+                                }
+                            }
+                            colNode.put("items", items);
+                            collections.add(colNode);
+                        }
+                    }
+                    cNode.put("collections", collections);
+                    tree.add(cNode);
+                }
+            }
+            this.cachedTree = new CacheEntry(tree);
+            return tree;
+        } catch (Exception e) {
+            log.warn("[DSpace] Error building tree: {}", e.toString());
+            return new ArrayList<>();
+        }
+    }
+
+    private String authenticate() throws IOException {
+        // 1) GET /security/csrf to obtain cookie value
+        HttpURLConnection con1 = (HttpURLConnection) new URL(apiBase + "/security/csrf").openConnection();
+        con1.setRequestMethod("GET");
+        con1.setInstanceFollowRedirects(false);
+        con1.setDoInput(true);
+        int code1 = con1.getResponseCode();
+        String setCookie = con1.getHeaderField("Set-Cookie");
+        String xsrfCookie = extractXsrfCookie(setCookie);
+        safeClose(con1);
+        if (xsrfCookie == null) {
+            log.warn("[DSpace] No XSRF cookie received, code {}", code1);
+            return null;
+        }
+        // 2) POST /authn/login with headers
+        HttpURLConnection con2 = (HttpURLConnection) new URL(apiBase + "/authn/login").openConnection();
+        con2.setRequestMethod("POST");
+        con2.setInstanceFollowRedirects(false);
+        con2.setDoOutput(true);
+        con2.setRequestProperty("X-XSRF-TOKEN", xsrfCookie);
+        con2.setRequestProperty("Cookie", "DSPACE-XSRF-COOKIE=" + xsrfCookie);
+        con2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        String body = "user=" + urlEncode(email) + "&password=" + urlEncode(password);
+        try (OutputStream os = con2.getOutputStream()) {
+            os.write(body.getBytes(StandardCharsets.UTF_8));
+        }
+        // We need headers; Bearer may appear in headers
+        String authHeader = con2.getHeaderField("Authorization");
+        safeClose(con2);
+        if (authHeader == null || !authHeader.toLowerCase().startsWith("bearer ")) {
+            log.warn("[DSpace] Authorization header not found after login");
+            return null;
+        }
+        return authHeader.substring(7).trim();
+    }
+
+    private Map<String, Object> getJson(String url, String bearer) throws IOException {
+        HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+        con.setRequestMethod("GET");
+        con.setRequestProperty("Accept", "application/json");
+        if (bearer != null) con.setRequestProperty("Authorization", "Bearer " + bearer);
+        int code = con.getResponseCode();
+        if (code >= 200 && code < 300) {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8))) {
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                return Json.parseToMap(sb.toString());
+            } finally {
+                safeClose(con);
+            }
+        } else {
+            log.warn("[DSpace] GET {} -> HTTP {}", url, code);
+            safeClose(con);
+            return null;
+        }
+    }
+
+    private static String extractXsrfCookie(String setCookie) {
+        if (setCookie == null) return null;
+        // Look for DSPACE-XSRF-COOKIE=...
+        String tokenName = "DSPACE-XSRF-COOKIE=";
+        int idx = setCookie.indexOf(tokenName);
+        if (idx < 0) return null;
+        int start = idx + tokenName.length();
+        int end = setCookie.indexOf(';', start);
+        if (end < 0) end = setCookie.length();
+        return setCookie.substring(start, end);
+    }
+
+    private static String urlEncode(String s) {
+        try {
+            return java.net.URLEncoder.encode(s, "UTF-8");
+        } catch (Exception e) {
+            return s;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> extractEmbedded(Map<String, Object> resp, String key) {
+        if (resp == null) return null;
+        Object embedded = resp.get("_embedded");
+        if (!(embedded instanceof Map)) return null;
+        Object list = ((Map<String, Object>) embedded).get(key);
+        if (list instanceof List) return (List<Map<String, Object>>) list;
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String linkHref(Map<String, Object> obj, String rel) {
+        if (obj == null) return null;
+        Object links = obj.get("_links");
+        if (!(links instanceof Map)) return null;
+        Object relObj = ((Map<String, Object>) links).get(rel);
+        if (!(relObj instanceof Map)) return null;
+        Object href = ((Map<String, Object>) relObj).get("href");
+        return href == null ? null : href.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String extractTitle(Map<String, Object> item) {
+        if (item == null) return null;
+        Object md = item.get("metadata");
+        if (!(md instanceof Map)) return null;
+        Object titleArr = ((Map<String, Object>) md).get("dc.title");
+        if (titleArr instanceof List && !((List<?>) titleArr).isEmpty()) {
+            Object first = ((List<?>) titleArr).get(0);
+            if (first instanceof Map) {
+                Object v = ((Map<String, Object>) first).get("value");
+                return v == null ? null : v.toString();
+            }
+        }
+        return null;
+    }
+
+    private static String str(Object o) { return o == null ? null : o.toString(); }
+
+    private static void safeClose(HttpURLConnection con) {
+        if (con != null) try { con.disconnect(); } catch (Exception ignore) {}
+    }
+
+    /** Minimal JSON parser to Map using org.json built into Java is not available; implement a thin adapter using Jackson if present.
+     * Here we provide a tiny wrapper that relies on the presence of com.fasterxml.jackson in Sakai. */
+    static class Json {
+        private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER = new com.fasterxml.jackson.databind.ObjectMapper();
+        @SuppressWarnings("unchecked")
+        static Map<String, Object> parseToMap(String json) throws IOException {
+            if (json == null || json.isEmpty()) return new HashMap<>();
+            return MAPPER.readValue(json, Map.class);
+        }
+    }
+}
