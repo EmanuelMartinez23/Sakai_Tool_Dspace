@@ -139,10 +139,7 @@
 <style>
     /* DSpace Section Styles */
     .dspace-section {
-        margin: 1rem 0;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        background: #f9f9f9;
+        border: 1px solid #8c8a8a;
     }
 
     .dspace-container {
@@ -236,39 +233,58 @@
     .dspace-items-table {
         margin: 0;
         font-size: 0.875rem;
-        border: none;
+        border: 1px solid #dee2e6;
+        width: 100%;
     }
 
     .dspace-items-table th {
-        background: #e9ecef;
+        background: #343a40 !important;
+        color: white !important;
         position: sticky;
         top: 0;
         z-index: 10;
         font-weight: 600;
-        border: none;
+        border: 1px solid #454d55;
+        padding: 0.75rem;
+        text-align: left;
     }
 
     .dspace-items-table td {
         vertical-align: middle;
-        padding: 0.5rem;
-        border: none;
-        border-bottom: 1px solid #dee2e6;
+        padding: 0.75rem;
+        border: 1px solid #dee2e6;
+        color: white;
     }
 
-    .dspace-items-table tr:last-child td {
-        border-bottom: none;
+    /* Filas pares - Color más oscuro */
+    .table-row-even {
+        background-color: #495057 !important;
+    }
+
+    .table-row-even:hover {
+        background-color: #5a6268 !important;
+    }
+
+    /* Filas impares - Color más claro */
+    .table-row-odd {
+        background-color: #6c757d !important;
+    }
+
+    .table-row-odd:hover {
+        background-color: #7a8288 !important;
     }
 
     .bitstream-link {
-        color: #007bff;
+        color: #80bdff !important;
         text-decoration: none;
         font-size: 0.8em;
         margin-left: 0.5rem;
+        font-weight: 500;
     }
 
     .bitstream-link:hover {
         text-decoration: underline;
-        color: #0056b3;
+        color: #a6d2ff !important;
     }
 
     /* Collapsible states */
@@ -308,6 +324,11 @@
             font-size: 0.8rem;
         }
 
+        .dspace-items-table th,
+        .dspace-items-table td {
+            padding: 0.5rem;
+        }
+
         .dspace-community-header,
         .dspace-collection-header {
             padding: 0.6rem 0.75rem;
@@ -334,7 +355,6 @@
         }
     }
 </style>
-
 <script>
     // JavaScript para funcionalidades de colapso/expansión
     document.addEventListener('DOMContentLoaded', function() {
@@ -512,7 +532,7 @@
                             </div>
 
                             <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                <table class="dspace-items-table table table-bordered table-sm">
                                     <thead>
                                     <tr>
                                         <th>Item</th>
@@ -520,21 +540,21 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
+                                    <tr class="table-row-even">
                                         <td>Item 1</td>
                                         <td>
                                             Archivo1.txt
                                             <a href="#" class="bitstream-link">[Link]</a>
                                         </td>
                                     </tr>
-                                    <tr>
+                                    <tr class="table-row-odd">
                                         <td>Item 2</td>
                                         <td>
                                             Documento.pdf
                                             <a href="#" class="bitstream-link">[Link]</a>
                                         </td>
                                     </tr>
-                                    <tr>
+                                    <tr class="table-row-even">
                                         <td>Item 3</td>
                                         <td>
                                             Imagen.jpg
@@ -555,7 +575,7 @@
                             </div>
 
                             <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                <table class="dspace-items-table table table-bordered table-sm">
                                     <thead>
                                     <tr>
                                         <th>Item</th>
@@ -563,14 +583,14 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
+                                    <tr class="table-row-even">
                                         <td>Item 1</td>
                                         <td>
                                             Archivo1.txt
                                             <a href="#" class="bitstream-link">[Link]</a>
                                         </td>
                                     </tr>
-                                    <tr>
+                                    <tr class="table-row-odd">
                                         <td>Item 2</td>
                                         <td>
                                             Datos.csv
@@ -602,7 +622,7 @@
                             </div>
 
                             <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                <table class="dspace-items-table table table-bordered table-sm">
                                     <thead>
                                     <tr>
                                         <th>Item</th>
@@ -610,7 +630,7 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
+                                    <tr class="table-row-even">
                                         <td>Item 1</td>
                                         <td>
                                             Archivo1.txt
@@ -631,7 +651,7 @@
                             </div>
 
                             <div class="dspace-items-table-container collapsible-content" style="display: none;">
-                                <table class="dspace-items-table table table-striped table-bordered table-sm">
+                                <table class="dspace-items-table table table-bordered table-sm">
                                     <thead>
                                     <tr>
                                         <th>Item</th>
@@ -639,7 +659,7 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr>
+                                    <tr class="table-row-even">
                                         <td>Item 1</td>
                                         <td>
                                             Archivo1.txt
