@@ -3033,17 +3033,31 @@ public class AssignmentAction extends PagedResourceActionII {
         // DSpace dynamic population (optional; controlled by properties)
         try {
             boolean dspaceEnabled = serverConfigurationService.getBoolean("assignment.dspace.enabled", false);
+            log.info("DSpace integration enabled: {}", dspaceEnabled);
+            context.put("dspaceEnabled", dspaceEnabled);
             if (dspaceEnabled) {
                 String apiBase = serverConfigurationService.getString("dspace.api.base", null);
                 String frontBase = serverConfigurationService.getString("dspace.front.base", null);
                 String email = serverConfigurationService.getString("dspace.auth.email", null);
                 String password = serverConfigurationService.getString("dspace.auth.password", null);
                 long ttlSec = serverConfigurationService.getInt("dspace.cache.ttl.seconds", 300);
+                context.put("apiBase", apiBase);
+                context.put("frontBase", frontBase);
+                context.put("email", email);
+                context.put("password", password);
+                log.info("DSpace config - API Base: {}", apiBase);
+                log.info("DSpace config - Front Base: {}", frontBase);
+                log.info("DSpace config - Email: {}", email);
+                log.info("DSpace config - TTL: {} seconds", ttlSec);
+
                 if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(frontBase) && StringUtils.isNotBlank(email) && StringUtils.isNotBlank(password)) {
+                    log.info("Attempting to connect to DSpace...");
+
                     org.sakaiproject.assignment.tool.dspace.DSpaceClientService dsClient = new org.sakaiproject.assignment.tool.dspace.DSpaceClientService(apiBase, frontBase, email, password, ttlSec * 1000L);
                     @SuppressWarnings("unchecked")
                     java.util.List<java.util.Map<String, Object>> dspaceTree = dsClient.getDSpaceTree(false);
                     context.put("dspaceTree", dspaceTree);
+                    log.info("DSpace tree retrieved with {} communities", dspaceTree != null ? dspaceTree.size() : 0);
 
                     // Also provide flat lists for compatibility/use elsewhere if needed
                     java.util.List<java.util.Map<String, Object>> comms = new java.util.ArrayList<>();

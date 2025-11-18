@@ -496,6 +496,12 @@
         <!-- Dspace dynamic section -->
         <h4>DSpace</h4>
         <div class="dspace-section">
+            <p>$dspaceEnabled</p>
+            <p>$apiBase</p>
+            <p>$frontBase</p>
+            <p>$email</p>
+            <p>$password</p>
+            <p>Test</p>
             <div class="dspace-container">
                 #if($dspaceError)
                     <div class="alert alert-warning">$!dspaceError</div>
