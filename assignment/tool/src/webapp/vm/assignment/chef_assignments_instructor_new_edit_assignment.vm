@@ -579,6 +579,32 @@
 
         <script>
             (function(){
+                function initDspaceTables(context){
+                    if (!window.jQuery || !jQuery.fn || !jQuery.fn.dataTable) return;
+                    var jqCtx = context ? jQuery(context) : jQuery(document);
+                    jqCtx.find('table.dspace-items-table').each(function(){
+                        var dtTable = jQuery(this);
+                        if (jQuery.fn.dataTable.isDataTable(this)) return;
+                        dtTable.DataTable({
+                            paging: true,
+                            searching: false,
+                            ordering: false,
+                            info: false,
+                            lengthChange: false,
+                            pageLength: 10,
+                            language: {
+                                paginate: {
+                                    first: '$tlang.getString("datatables.custom.first")',
+                                    last: '$tlang.getString("datatables.custom.last")',
+                                    next: '$tlang.getString("datatables.custom.next")',
+                                    previous: '$tlang.getString("datatables.custom.previous")'
+                                },
+                                emptyTable: '$tlang.getString("datatables.emptyTable")',
+                                zeroRecords: '$tlang.getString("datatables.zeroRecords")'
+                            }
+                        });
+                    });
+                }
                 function toggleNextContent(header){
                     var next = header.nextElementSibling;
                     if (!next) return;
@@ -587,6 +613,15 @@
                     header.classList.toggle('active', isHidden);
                     header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
                     next.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
+                    if (isHidden) {
+                        initDspaceTables(next);
+                        if (window.jQuery && jQuery.fn && jQuery.fn.dataTable) {
+                            jQuery(next).find('table.dspace-items-table').each(function(){
+                                var api = jQuery(this).DataTable();
+                                if (api && api.columns) { api.columns.adjust(); }
+                            });
+                        }
+                    }
                 }
                 function bindDspaceToggles(){
                     document.querySelectorAll('.dspace-community-header.collapsible').forEach(function(el){
@@ -605,6 +640,7 @@
                         el.addEventListener('click', function(){ toggleNextContent(el); });
                         el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNextContent(el); }});
                     });
+                    initDspaceTables(document);
                 }
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', bindDspaceToggles);
