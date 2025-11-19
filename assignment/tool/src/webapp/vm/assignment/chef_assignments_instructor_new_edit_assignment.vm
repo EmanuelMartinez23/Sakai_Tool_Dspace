@@ -721,6 +721,19 @@
                                                     'color': 'black',
                                                     'margin': '0 2px'
                                                 });
+
+                                        // Aplicar estilos al buscador
+                                        $(this).closest('.dataTables_wrapper').find('.dataTables_filter label')
+                                                .css('color', 'black');
+
+                                        // Aplicar estilos al input del buscador
+                                        $(this).closest('.dataTables_wrapper').find('.dataTables_filter input')
+                                                .css({
+                                                    'background-color': '#f0f0f0', // Gris claro
+                                                    'color': 'black',
+                                                    'border': '1px solid #ccc',
+                                                    'padding': '4px 8px'
+                                                });
                                     }
                                 });
                             } catch (e) {
