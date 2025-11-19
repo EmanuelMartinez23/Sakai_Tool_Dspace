@@ -701,15 +701,15 @@
                                     dom: 'tp',
                                     paging: true,
                                     pagingType: 'full_numbers',
-                                    searching: false,
-                                    ordering: false,
-                                    info: false,
+                                    searching: true,
+                                    ordering: true,
+                                    info: true,
                                     lengthChange: false,
                                     pageLength: 4,
                                     language: {
                                         paginate: {
-                                            first: '$!tlang.getString("datatables.custom.first")',
-                                            last: '$!tlang.getString("datatables.custom.last")',
+                                           // first: '$!tlang.getString("datatables.custom.first")',
+                                           // last: '$!tlang.getString("datatables.custom.last")',
                                             next: '$!tlang.getString("datatables.custom.next")',
                                             previous: '$!tlang.getString("datatables.custom.previous")'
                                         },
