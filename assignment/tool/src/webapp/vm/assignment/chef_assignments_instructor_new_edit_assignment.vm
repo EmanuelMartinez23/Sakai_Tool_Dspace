@@ -494,8 +494,7 @@
 			</div>
 		#end
 
-        <!-- Dspace dynamic section -->
-        <h4>DSpace</h4>
+        <h4>Repositorio Institucional (Colecciones)</h4>
         <div class="dspace-section">
             <div class="dspace-container">
                 #if($dspaceError)
@@ -503,6 +502,7 @@
                 #end
 
                 #if($dspaceTree && $dspaceTree.size() > 0)
+                    <!-- Show Comunidades-->
                     #foreach($comm in $dspaceTree)
                         <div class="dspace-community">
                             <div class="dspace-community-header collapsible">
@@ -513,6 +513,7 @@
                             <div class="dspace-collections collapsible-content" style="display: none;">
                                 #set($collections = $!comm.collections)
                                 #if($collections && $collections.size() > 0)
+                                    <!-- Show Colecciones -->
                                     #foreach($col in $collections)
                                         <div class="dspace-collection">
                                             <div class="dspace-collection-header collapsible">
@@ -532,6 +533,7 @@
                                                         </thead>
                                                         <tbody>
                                                             #set($rowClass = "table-row-even")
+                                                        <!-- Show Items-->
                                                             #foreach($it in $items)
                                                                 <tr class="$rowClass">
                                                                     <td>$!it.title</td>
@@ -576,7 +578,6 @@
         </div>
 
         <script>
-            // Simple collapse/expand behavior for DSpace sections
             (function(){
                 function toggleNextContent(header){
                     var next = header.nextElementSibling;
@@ -584,7 +585,6 @@
                     var isHidden = next.style.display === 'none' || next.style.display === '';
                     next.style.display = isHidden ? 'block' : 'none';
                     header.classList.toggle('active', isHidden);
-                    // ARIA support
                     header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
                     next.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
                 }
@@ -606,7 +606,6 @@
                         el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNextContent(el); }});
                     });
                 }
-                // Bind immediately if DOM is already ready, otherwise on DOMContentLoaded
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', bindDspaceToggles);
                 } else {
@@ -615,7 +614,7 @@
             })();
         </script>
 
-        <!-- End Dspace dynamic section -->
+        <!-- fin Dspace Section -->
 
         <h4>
             $tlang.getString("gen.availability")

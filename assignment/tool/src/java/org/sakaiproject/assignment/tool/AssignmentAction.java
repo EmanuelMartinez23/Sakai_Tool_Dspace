@@ -3030,10 +3030,9 @@ public class AssignmentAction extends PagedResourceActionII {
         context.put("sortedBy", sortedBy);
         context.put("sortedAsc", sortedAsc);
 
-        // DSpace dynamic population (optional; controlled by properties)
         try {
             boolean dspaceEnabled = serverConfigurationService.getBoolean("assignment.dspace.enabled", false);
-            log.info("DSpace integration enabled: {}", dspaceEnabled);
+            log.info("DSpace integration activo: {}", dspaceEnabled);
             if (dspaceEnabled) {
                 String apiBase = serverConfigurationService.getString("dspace.api.base", null);
                 String frontBase = serverConfigurationService.getString("dspace.front.base", null);
@@ -3043,15 +3042,13 @@ public class AssignmentAction extends PagedResourceActionII {
 
 
                 if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(frontBase) && StringUtils.isNotBlank(email) && StringUtils.isNotBlank(password)) {
-                    log.info("Attempting to connect to DSpace...");
 
                     org.sakaiproject.assignment.tool.dspace.DSpaceClientService dsClient = new org.sakaiproject.assignment.tool.dspace.DSpaceClientService(apiBase, frontBase, email, password, ttlSec * 1000L);
                     @SuppressWarnings("unchecked")
                     java.util.List<java.util.Map<String, Object>> dspaceTree = dsClient.getDSpaceTree(false);
                     context.put("dspaceTree", dspaceTree);
-                    log.info("DSpace tree retrieved with {} communities", dspaceTree != null ? dspaceTree.size() : 0);
+                    log.info("DSpace arbol con  {} communities", dspaceTree != null ? dspaceTree.size() : 0);
 
-                    // Also provide flat lists for compatibility/use elsewhere if needed
                     java.util.List<java.util.Map<String, Object>> comms = new java.util.ArrayList<>();
                     java.util.List<java.util.Map<String, Object>> cols = new java.util.ArrayList<>();
                     java.util.List<java.util.Map<String, Object>> items = new java.util.ArrayList<>();
@@ -3100,7 +3097,7 @@ public class AssignmentAction extends PagedResourceActionII {
                     context.put("dspaceItems", items);
                     context.put("dspaceBitstreams", bitstreams);
                 } else {
-                    log.debug("DSpace integration enabled but missing configuration (apiBase/frontBase/email/password)");
+                    log.debug("DSpace integration activo pero hubo algun error en las configuraciones (apiBase/frontBase/email/password)");
                 }
             }
         } catch (Exception e) {

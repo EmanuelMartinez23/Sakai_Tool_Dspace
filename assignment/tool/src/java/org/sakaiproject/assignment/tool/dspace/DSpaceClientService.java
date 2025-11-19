@@ -16,11 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Minimal DSpace REST client with light in-memory cache to fetch communities, collections, items and bitstreams.
- *
- * Notes:
- * - Auth flow: GET /security/csrf to get XSRF cookie → POST /authn/login with headers to receive Authorization: Bearer ...
- * - Uses java.net.HttpURLConnection to avoid extra dependencies in the tool.
+ * DSpace REST client
  */
 @Slf4j
 public class DSpaceClientService {
@@ -91,7 +87,7 @@ public class DSpaceClientService {
                     cNode.put("name", cName);
                     List<Map<String, Object>> collections = new ArrayList<>();
 
-                    // Collections for community
+                    // Colecciones por comunidad
                     log.info("[DSpace]     📁 Obteniendo colecciones para comunidad {}", cUuid);
                     Map<String, Object> colResp = getJson(apiBase + "/core/communities/" + cUuid + "/collections?size=1000", token);
                     List<Map<String, Object>> colList = extractEmbedded(colResp, "collections");
@@ -116,7 +112,7 @@ public class DSpaceClientService {
                             if (allItems != null) {
                                 int itemsInCollection = 0;
                                 for (Map<String, Object> item : allItems) {
-                                    // Resolve owningCollection uuid
+                                    // Identficadores unicos  de colecciones
                                     String owningHref = linkHref(item, "owningCollection");
                                     String owningUuid = null;
                                     if (owningHref != null) {
@@ -128,7 +124,7 @@ public class DSpaceClientService {
                                         continue;
                                     }
 
-                                    // Build item node
+
                                     String itemUuid = str(item.get("uuid"));
                                     String title = extractTitle(item);
                                     log.info("[DSpace]           📝 Procesando item: {} ({})", title, itemUuid);
@@ -221,7 +217,7 @@ public class DSpaceClientService {
         log.info("[DSpace] 📍 URL base: {}", apiBase);
         log.info("[DSpace] 👤 Usuario: {}", email);
 
-        // 1) GET /security/csrf to obtain cookie value
+        // 1) GET /security/csrf obtener token CSRF
         log.info("[DSpace] 📥 Paso 1: Obteniendo token CSRF desde: {}/security/csrf", apiBase);
         HttpURLConnection con1 = (HttpURLConnection) new URL(apiBase + "/security/csrf").openConnection();
         con1.setRequestMethod("GET");
@@ -235,7 +231,6 @@ public class DSpaceClientService {
             String setCookie = con1.getHeaderField("Set-Cookie");
             log.info("[DSpace] 🍪 Header Set-Cookie recibido: {}", setCookie);
 
-            // Log todas las cabeceras para debugging
             log.debug("[DSpace] 📨 Todas las cabeceras de respuesta CSRF:");
             Map<String, List<String>> headers = con1.getHeaderFields();
             for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
@@ -255,13 +250,12 @@ public class DSpaceClientService {
 
             log.info("[DSpace] ✅ Token CSRF obtenido exitosamente");
 
-            // 2) POST /authn/login with headers
+            // 2) POST /authn/login login con headers
             log.info("[DSpace] 📤 Paso 2: Enviando credenciales de login a: {}/authn/login", apiBase);
             HttpURLConnection con2 = (HttpURLConnection) new URL(apiBase + "/authn/login").openConnection();
             con2.setRequestMethod("POST");
             con2.setInstanceFollowRedirects(false);
             con2.setDoOutput(true);
-
             // Configurar headers
             con2.setRequestProperty("X-XSRF-TOKEN", xsrfCookie);
             con2.setRequestProperty("Cookie", "DSPACE-XSRF-COOKIE=" + xsrfCookie);
@@ -288,7 +282,6 @@ public class DSpaceClientService {
             int loginResponseCode = con2.getResponseCode();
             log.info("[DSpace] 📋 Código de respuesta login: {}", loginResponseCode);
 
-            // Log todas las cabeceras de la respuesta de login
             log.info("[DSpace] 📨 Cabeceras de respuesta de login:");
             Map<String, List<String>> loginHeaders = con2.getHeaderFields();
             for (Map.Entry<String, List<String>> entry : loginHeaders.entrySet()) {
