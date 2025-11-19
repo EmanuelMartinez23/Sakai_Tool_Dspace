@@ -700,7 +700,7 @@
                                 dtTable.DataTable({
                                     dom: 'tp',
                                     paging: true,
-                                    pagingType: 'full_numbers',
+                                    pagingType: 'simple_numbers',
                                     searching: true,
                                     ordering: true,
                                     info: true,
@@ -708,8 +708,6 @@
                                     pageLength: 4,
                                     language: {
                                         paginate: {
-                                           // first: '$!tlang.getString("datatables.custom.first")',
-                                           // last: '$!tlang.getString("datatables.custom.last")',
                                             next: '$!tlang.getString("datatables.custom.next")',
                                             previous: '$!tlang.getString("datatables.custom.previous")'
                                         },
@@ -718,10 +716,11 @@
                                     },
                                     drawCallback: function() {
                                         // Aplicar estilos a la paginación
-                                        $(this).find('.dataTables_paginate .paginate_button').css({
-                                            'color': 'black',
-                                            'margin': '0 2px'
-                                        });
+                                        $(this).closest('.dataTables_wrapper').find('.dataTables_paginate .paginate_button')
+                                                .css({
+                                                    'color': 'black',
+                                                    'margin': '0 2px'
+                                                });
                                     }
                                 });
                             } catch (e) {
