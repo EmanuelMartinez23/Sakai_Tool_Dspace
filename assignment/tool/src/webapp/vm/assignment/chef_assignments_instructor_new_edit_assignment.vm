@@ -587,19 +587,33 @@
                         if (window.console && console.error) console.error('[DSpaceTables] jQuery no está cargado. DataTables requiere jQuery.');
                         return;
                     }
+                    // Asegurar CSS
+                    if (!document.getElementById('dt-autoload-css')) {
+                        var link = document.createElement('link');
+                        link.id = 'dt-autoload-css';
+                        link.rel = 'stylesheet';
+                        link.href = 'https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css';
+                        document.head.appendChild(link);
+                    }
+                    // Asegurar JS
                     var existing = document.getElementById('dt-autoload-js');
                     if (!existing) {
                         var s = document.createElement('script');
                         s.id = 'dt-autoload-js';
                         var primary = '/library/js/jquery.dataTables.min.js';
-                        var fallback = '/js/jquery.dataTables.min.js';
+                        var fallback1 = '/js/jquery.dataTables.min.js';
+                        var fallback2 = 'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js';
                         s.src = primary;
                         s.async = true;
                         s.onload = function(){ if (window.console && console.debug) console.debug('[DSpaceTables] DataTables cargado dinámicamente.'); };
                         s.onerror = function(){
-                            if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + primary + ', probando fallback ' + fallback);
-                            s.onerror = function(){ if (window.console && console.error) console.error('[DSpaceTables] Error cargando ' + fallback); };
-                            s.src = fallback;
+                            if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + primary + ', probando fallback ' + fallback1);
+                            s.onerror = function(){
+                                if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + fallback1 + ', probando CDN ' + fallback2);
+                                s.onerror = function(){ if (window.console && console.error) console.error('[DSpaceTables] Error cargando ' + fallback2); };
+                                s.src = fallback2;
+                            };
+                            s.src = fallback1;
                         };
                         document.head.appendChild(s);
                     }
@@ -665,7 +679,7 @@
                     header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
                     next.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
                     if (isHidden) {
-                        initDspaceTables(next);
+                        ensureDataTablesAvailable(function(){ initDspaceTables(next); });
                         if (window.jQuery && jQuery.fn && jQuery.fn.dataTable) {
                             jQuery(next).find('table.dspace-items-table').each(function(){
                                 var api = jQuery(this).DataTable();
@@ -691,7 +705,7 @@
                         el.addEventListener('click', function(){ toggleNextContent(el); });
                         el.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNextContent(el); }});
                     });
-                    initDspaceTables(document);
+                    ensureDataTablesAvailable(function(){ initDspaceTables(document); });
                 }
                 if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', bindDspaceToggles);
