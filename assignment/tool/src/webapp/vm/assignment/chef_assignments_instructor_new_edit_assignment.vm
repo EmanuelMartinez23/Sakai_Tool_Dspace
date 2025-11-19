@@ -579,16 +579,51 @@
 
         <script>
             (function(){
+                // Carga DataTables dinámicamente si no está presente
+                function ensureDataTablesAvailable(callback){
+                    function available(){ return window.jQuery && jQuery.fn && (jQuery.fn.dataTable || jQuery.fn.DataTable); }
+                    if (available()) { callback(); return; }
+                    if (!window.jQuery) {
+                        if (window.console && console.error) console.error('[DSpaceTables] jQuery no está cargado. DataTables requiere jQuery.');
+                        return;
+                    }
+                    var existing = document.getElementById('dt-autoload-js');
+                    if (!existing) {
+                        var s = document.createElement('script');
+                        s.id = 'dt-autoload-js';
+                        var primary = '/library/js/jquery.dataTables.min.js';
+                        var fallback = '/js/jquery.dataTables.min.js';
+                        s.src = primary;
+                        s.async = true;
+                        s.onload = function(){ if (window.console && console.debug) console.debug('[DSpaceTables] DataTables cargado dinámicamente.'); };
+                        s.onerror = function(){
+                            if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + primary + ', probando fallback ' + fallback);
+                            s.onerror = function(){ if (window.console && console.error) console.error('[DSpaceTables] Error cargando ' + fallback); };
+                            s.src = fallback;
+                        };
+                        document.head.appendChild(s);
+                    }
+                    var tries = 0;
+                    (function waitReady(){
+                        if (available()) { callback(); return; }
+                        if (++tries > 40) { if (window.console && console.error) console.error('[DSpaceTables] DataTables no estuvo disponible tras la carga.'); return; }
+                        setTimeout(waitReady, 250);
+                    })();
+                }
                 function initDspaceTables(context){
                     var attempts = 0;
                     function tryInit(){
                         attempts++;
                         if (!window.jQuery || !jQuery.fn || (!jQuery.fn.dataTable && !jQuery.fn.DataTable)) {
                             if (attempts < 20) {
+                                if (window.console && console.debug) console.debug('[DSpaceTables] DataTables no disponible aún. Reintento #' + attempts);
                                 setTimeout(tryInit, 250);
+                            } else {
+                                if (window.console && console.error) console.error('[DSpaceTables] DataTables no se cargó. Verifica que jquery.dataTables esté incluido en esta página.');
                             }
                             return;
                         }
+                        if (window.console && console.debug) console.debug('[DSpaceTables] DataTables disponible. Inicializando en contexto:', context || document);
                         var jqCtx = context ? jQuery(context) : jQuery(document);
                         jqCtx.find('table.dspace-items-table').each(function(){
                             var dtTable = jQuery(this);
