@@ -579,6 +579,53 @@
 
         <script>
             (function(){
+                // Paginación simple sin dependencias externas (solo requiere jQuery ya presente en Sakai)
+                function initSimplePagination(context, options){
+                    var jq = window.jQuery; if (!jq) return;
+                    var cfg = jq.extend({ pageLength: 5 }, options || {});
+                    var jqCtx = context ? jq(context) : jq(document);
+                    jqCtx.find('table.dspace-items-table').each(function(){
+                        var jTable = jq(this);
+                        if (jTable.data('simplePagerInit')) return;
+                        var jTbody = jTable.find('tbody');
+                        var jRows = jTbody.children('tr');
+                        var total = jRows.length;
+                        var pageLen = cfg.pageLength;
+                        // Si no hay suficientes filas, no renderizamos controles y mostramos todo
+                        if (total <= pageLen) {
+                            jTable.data('simplePagerInit', true);
+                            return;
+                        }
+                        var totalPages = Math.ceil(total / pageLen);
+                        var state = { page: 1, totalPages: totalPages, pageLength: pageLen, totalRows: total };
+                        // Crear contenedor de paginación
+                        var jPager = jq('<div class="dspace-simple-pager mt-2 d-flex align-items-center gap-1"></div>');
+                        var jBtnFirst = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Primero">&laquo;</button>');
+                        var jBtnPrev  = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Anterior">&lsaquo;</button>');
+                        var jInfo     = jq('<span class="mx-2 small text-muted"></span>');
+                        var jBtnNext  = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Siguiente">&rsaquo;</button>');
+                        var jBtnLast  = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Último">&raquo;</button>');
+                        jPager.append(jBtnFirst, jBtnPrev, jInfo, jBtnNext, jBtnLast);
+                        jTable.after(jPager);
+                        function render(){
+                            var start = (state.page - 1) * state.pageLength;
+                            var end = start + state.pageLength;
+                            jRows.hide().slice(start, end).show();
+                            jInfo.text('Página ' + state.page + ' de ' + state.totalPages);
+                            jBtnFirst.prop('disabled', state.page === 1);
+                            jBtnPrev.prop('disabled', state.page === 1);
+                            jBtnNext.prop('disabled', state.page === state.totalPages);
+                            jBtnLast.prop('disabled', state.page === state.totalPages);
+                        }
+                        jBtnFirst.on('click', function(){ state.page = 1; render(); });
+                        jBtnPrev.on('click', function(){ if (state.page > 1) { state.page--; render(); }});
+                        jBtnNext.on('click', function(){ if (state.page < state.totalPages) { state.page++; render(); }});
+                        jBtnLast.on('click', function(){ state.page = state.totalPages; render(); });
+                        // Guardar estado y renderizar
+                        jTable.data('simplePagerInit', true).data('simplePagerState', state);
+                        render();
+                    });
+                }
                 // Carga DataTables dinámicamente si no está presente
                 function ensureDataTablesAvailable(callback){
                     function available(){ return window.jQuery && jQuery.fn && (jQuery.fn.dataTable || jQuery.fn.DataTable); }
@@ -592,7 +639,12 @@
                         var link = document.createElement('link');
                         link.id = 'dt-autoload-css';
                         link.rel = 'stylesheet';
-                        link.href = 'https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css';
+                        // Primero intentamos el CSS del webjar de datatables + bootstrap5
+                        link.href = '/library/webjars/datatables/1.10.25/css/dataTables.bootstrap5.min.css';
+                        link.onerror = function(){
+                            // Fallback a CSS básico del CDN si el webjar no existe
+                            link.href = 'https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css';
+                        };
                         document.head.appendChild(link);
                     }
                     // Asegurar JS
@@ -600,20 +652,26 @@
                     if (!existing) {
                         var s = document.createElement('script');
                         s.id = 'dt-autoload-js';
+                        // Orden de intentos: webjar → /library/js → /js → CDN
+                        var webjar = '/library/webjars/datatables/1.10.25/js/jquery.dataTables.min.js';
                         var primary = '/library/js/jquery.dataTables.min.js';
                         var fallback1 = '/js/jquery.dataTables.min.js';
                         var fallback2 = 'https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js';
-                        s.src = primary;
+                        s.src = webjar;
                         s.async = true;
                         s.onload = function(){ if (window.console && console.debug) console.debug('[DSpaceTables] DataTables cargado dinámicamente.'); };
                         s.onerror = function(){
-                            if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + primary + ', probando fallback ' + fallback1);
+                            if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + webjar + ', probando ' + primary);
                             s.onerror = function(){
-                                if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + fallback1 + ', probando CDN ' + fallback2);
-                                s.onerror = function(){ if (window.console && console.error) console.error('[DSpaceTables] Error cargando ' + fallback2); };
-                                s.src = fallback2;
+                                if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + primary + ', probando ' + fallback1);
+                                s.onerror = function(){
+                                    if (window.console && console.warn) console.warn('[DSpaceTables] Error cargando ' + fallback1 + ', probando CDN ' + fallback2);
+                                    s.onerror = function(){ if (window.console && console.error) console.error('[DSpaceTables] Error cargando ' + fallback2); };
+                                    s.src = fallback2;
+                                };
+                                s.src = fallback1;
                             };
-                            s.src = fallback1;
+                            s.src = primary;
                         };
                         document.head.appendChild(s);
                     }
@@ -679,13 +737,7 @@
                     header.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
                     next.setAttribute('aria-hidden', isHidden ? 'false' : 'true');
                     if (isHidden) {
-                        ensureDataTablesAvailable(function(){ initDspaceTables(next); });
-                        if (window.jQuery && jQuery.fn && jQuery.fn.dataTable) {
-                            jQuery(next).find('table.dspace-items-table').each(function(){
-                                var api = jQuery(this).DataTable();
-                                if (api && api.columns) { api.columns.adjust(); }
-                            });
-                        }
+                        initSimplePagination(next);
                     }
                 }
                 function bindDspaceToggles(){
