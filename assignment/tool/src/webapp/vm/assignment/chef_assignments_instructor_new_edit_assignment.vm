@@ -600,27 +600,23 @@
                         var state = { page: 1, totalPages: totalPages, pageLength: pageLen, totalRows: total };
                         // Crear contenedor de paginación
                         var jPager = jq('<div class="dspace-simple-pager mt-2 d-flex align-items-center gap-1"></div>');
-                        var jBtnFirst = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Primero">&laquo;</button>');
-                        var jBtnPrev  = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Anterior">&lsaquo;</button>');
-                        var jInfo     = jq('<span class="mx-2 small text-muted"></span>');
-                        var jBtnNext  = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Siguiente">&rsaquo;</button>');
-                        var jBtnLast  = jq('<button type="button" class="btn btn-light btn-sm" aria-label="Último">&raquo;</button>');
-                        jPager.append(jBtnFirst, jBtnPrev, jInfo, jBtnNext, jBtnLast);
+
+                        var jBtnPrev  = jq('<button type="button" class="mx-2 btn btn-light btn-sm text-dark" aria-label="Anterior">&lsaquo;</button>');
+                        var jInfo     = jq('<span class="mx-2 small text-muted text-dark"></span>');
+                        var jBtnNext  = jq('<button type="button" class="mx-2 btn btn-light btn-sm text-dark " aria-label="Siguiente">&rsaquo;</button>');
+
+                        jPager.append( jBtnPrev, jInfo, jBtnNext);
                         jTable.after(jPager);
                         function render(){
                             var start = (state.page - 1) * state.pageLength;
                             var end = start + state.pageLength;
                             jRows.hide().slice(start, end).show();
                             jInfo.text('Página ' + state.page + ' de ' + state.totalPages);
-                            jBtnFirst.prop('disabled', state.page === 1);
                             jBtnPrev.prop('disabled', state.page === 1);
                             jBtnNext.prop('disabled', state.page === state.totalPages);
-                            jBtnLast.prop('disabled', state.page === state.totalPages);
                         }
-                        jBtnFirst.on('click', function(){ state.page = 1; render(); });
                         jBtnPrev.on('click', function(){ if (state.page > 1) { state.page--; render(); }});
                         jBtnNext.on('click', function(){ if (state.page < state.totalPages) { state.page++; render(); }});
-                        jBtnLast.on('click', function(){ state.page = state.totalPages; render(); });
                         // Guardar estado y renderizar
                         jTable.data('simplePagerInit', true).data('simplePagerState', state);
                         render();
