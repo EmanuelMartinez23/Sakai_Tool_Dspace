@@ -698,7 +698,7 @@
                             if (jQuery.fn.dataTable.isDataTable(this)) return;
                             try {
                                 dtTable.DataTable({
-                                    dom: 'tp',
+                                    dom: 'ftp',
                                     paging: true,
                                     pagingType: 'simple_numbers',
                                     searching: true,
