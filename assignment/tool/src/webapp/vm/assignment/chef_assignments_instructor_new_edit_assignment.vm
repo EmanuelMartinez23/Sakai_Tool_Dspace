@@ -580,30 +580,46 @@
         <script>
             (function(){
                 function initDspaceTables(context){
-                    if (!window.jQuery || !jQuery.fn || !jQuery.fn.dataTable) return;
-                    var jqCtx = context ? jQuery(context) : jQuery(document);
-                    jqCtx.find('table.dspace-items-table').each(function(){
-                        var dtTable = jQuery(this);
-                        if (jQuery.fn.dataTable.isDataTable(this)) return;
-                        dtTable.DataTable({
-                            paging: true,
-                            searching: false,
-                            ordering: false,
-                            info: false,
-                            lengthChange: false,
-                            pageLength: 10,
-                            language: {
-                                paginate: {
-                                    first: '$tlang.getString("datatables.custom.first")',
-                                    last: '$tlang.getString("datatables.custom.last")',
-                                    next: '$tlang.getString("datatables.custom.next")',
-                                    previous: '$tlang.getString("datatables.custom.previous")'
-                                },
-                                emptyTable: '$tlang.getString("datatables.emptyTable")',
-                                zeroRecords: '$tlang.getString("datatables.zeroRecords")'
+                    var attempts = 0;
+                    function tryInit(){
+                        attempts++;
+                        if (!window.jQuery || !jQuery.fn || (!jQuery.fn.dataTable && !jQuery.fn.DataTable)) {
+                            if (attempts < 20) {
+                                setTimeout(tryInit, 250);
+                            }
+                            return;
+                        }
+                        var jqCtx = context ? jQuery(context) : jQuery(document);
+                        jqCtx.find('table.dspace-items-table').each(function(){
+                            var dtTable = jQuery(this);
+                            if (jQuery.fn.dataTable.isDataTable(this)) return;
+                            try {
+                                dtTable.DataTable({
+                                    dom: 'tp',
+                                    paging: true,
+                                    pagingType: 'full_numbers',
+                                    searching: false,
+                                    ordering: false,
+                                    info: false,
+                                    lengthChange: false,
+                                    pageLength: 10,
+                                    language: {
+                                        paginate: {
+                                            first: '$!tlang.getString("datatables.custom.first")',
+                                            last: '$!tlang.getString("datatables.custom.last")',
+                                            next: '$!tlang.getString("datatables.custom.next")',
+                                            previous: '$!tlang.getString("datatables.custom.previous")'
+                                        },
+                                        emptyTable: '$!tlang.getString("datatables.emptyTable")',
+                                        zeroRecords: '$!tlang.getString("datatables.zeroRecords")'
+                                    }
+                                });
+                            } catch (e) {
+                                // Swallow to avoid breaking the page if DT is not fully ready
                             }
                         });
-                    });
+                    }
+                    tryInit();
                 }
                 function toggleNextContent(header){
                     var next = header.nextElementSibling;
