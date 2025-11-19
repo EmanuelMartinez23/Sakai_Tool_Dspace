@@ -715,6 +715,13 @@
                                         },
                                         emptyTable: '$!tlang.getString("datatables.emptyTable")',
                                         zeroRecords: '$!tlang.getString("datatables.zeroRecords")'
+                                    },
+                                    drawCallback: function() {
+                                        // Aplicar estilos a la paginación
+                                        $(this).find('.dataTables_paginate .paginate_button').css({
+                                            'color': 'black',
+                                            'margin': '0 2px'
+                                        });
                                     }
                                 });
                             } catch (e) {
