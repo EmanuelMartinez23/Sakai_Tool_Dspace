@@ -602,7 +602,7 @@
                                     ordering: false,
                                     info: false,
                                     lengthChange: false,
-                                    pageLength: 10,
+                                    pageLength: 4,
                                     language: {
                                         paginate: {
                                             first: '$!tlang.getString("datatables.custom.first")',
