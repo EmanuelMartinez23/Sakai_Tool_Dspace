@@ -285,6 +285,18 @@
         color: #a6d2ff !important;
     }
 
+    /* Vertical stacking for bitstream Add buttons */
+    .add-url-actions .bitstream-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-start;
+    }
+    .add-url-actions .bitstream-buttons .btn {
+        display: inline-block;
+        width: auto;
+    }
+
     .collapsible.active .chevron {
         transform: rotate(90deg);
     }
@@ -557,25 +569,18 @@
                                                                     </td>
                                                                     <td>
                                                                         <div class="add-url-actions">
-                                                                            #set($effectiveUrl = '')
                                                                             #if($bss && $bss.size() > 0)
-                                                                                #set($effectiveUrl = $bss.get(0).downloadUrl)
-                                                                            #else
-                                                                                #set($effectiveUrl = $!it.url)
-                                                                            #end
-                                                                            <button type="button" class="btn btn-primary btn-sm add-as-url" data-name="$!it.title" #if($effectiveUrl) data-url="$!effectiveUrl" #end>
-                                                                                Agregar ítem
-                                                                            </button>
-                                                                            #if($bss && $bss.size() > 0)
-                                                                                <div class="mt-1">
+                                                                                <div class="bitstream-buttons">
                                                                                     #foreach($b in $bss)
                                                                                         #if($b.downloadUrl)
-                                                                                            <button type="button" class="btn btn-light btn-sm text-dark add-as-url" data-name="$!b.name" data-url="$!b.downloadUrl" title="Agregar bitstream $!b.name">Agregar bitstream</button>
+                                                                                            <button type="button" class="btn btn-light btn-sm text-dark add-as-url" data-name="$!b.name" data-url="$!b.downloadUrl" title="Agregar bitstream $!b.name">Agregar</button>
                                                                                         #else
-                                                                                            <button type="button" class="btn btn-light btn-sm text-dark add-as-url" data-name="$!b.name" title="Agregar bitstream $!b.name">Agregar bitstream</button>
+                                                                                            <button type="button" class="btn btn-light btn-sm text-dark add-as-url" data-name="$!b.name" title="Agregar bitstream $!b.name">Agregar</button>
                                                                                         #end
                                                                                     #end
                                                                                 </div>
+                                                                            #else
+                                                                                <span class="text-muted">Sin bitstreams</span>
                                                                             #end
                                                                         </div>
                                                                     </td>
@@ -938,10 +943,6 @@
                     block.list.appendChild(li);
                     setEditorHtml(container.innerHTML);
                     notify('Recurso agregado.', 'info');
-                    // Si parece un enlace de descarga de bitstream, iniciar descarga inmediata también
-                    if (url && /\/bitstreams\/.+\/download/.test(url)) {
-                        triggerDownload(url, name);
-                    }
                     return true;
                 }
                 function onAddClick(ev){
