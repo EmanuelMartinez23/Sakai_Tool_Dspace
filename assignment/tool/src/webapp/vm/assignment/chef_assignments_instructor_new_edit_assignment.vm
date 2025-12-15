@@ -509,7 +509,6 @@
                                 <i class="fa fa-chevron-right chevron"></i>
                                 <i class="fa fa-users icon"></i>
                                 <span class="community-name">$!comm.name</span>
-                                <button type="button" class="btn btn-light btn-sm text-dark add-as-url" style="margin-left: .5rem;" data-name="$!comm.name" #if($!comm.url) data-url="$!comm.url" #end>Agregar</button>
                             </div>
                             <div class="dspace-collections collapsible-content" style="display: none;">
                                 #set($collections = $!comm.collections)
@@ -521,7 +520,6 @@
                                                 <i class="fa fa-chevron-right chevron"></i>
                                                 <i class="fa fa-folder icon"></i>
                                                 <span class="collection-name">$!col.name</span>
-                                                <button type="button" class="btn btn-light btn-sm text-dark add-as-url" style="margin-left: .5rem;" data-name="$!col.name" #if($!col.url) data-url="$!col.url" #end>Agregar</button>
                                             </div>
                                             <div class="dspace-items-table-container collapsible-content" style="display: none;">
                                                 #set($items = $!col.items)
@@ -548,7 +546,7 @@
                                                                                     <div class="bitstream-item">
                                                                                         <span class="file-name">$!b.name</span>
                                                                                         #if($b.downloadUrl)
-                                                                                            <a href="$!b.downloadUrl"  download="$!b.name"  target="_blank" class="bitstream-link">[Link]</a>
+                                                                                            <a href="$!b.downloadUrl" download="$!b.name" target="_blank" class="bitstream-link">[Link]</a>
                                                                                         #end
                                                                                     </div>
                                                                                 #end
@@ -558,13 +556,28 @@
                                                                         #end
                                                                     </td>
                                                                     <td>
-                                                                        #set($effectiveUrl = $!it.url)
-                                                                        #if(!$effectiveUrl && $bss && $bss.size() > 0)
-                                                                            #set($effectiveUrl = $bss.get(0).downloadUrl)
-                                                                        #end
-                                                                        <button type="button" class="btn btn-primary btn-sm add-as-url" data-name="$!it.title" #if($effectiveUrl) data-url="$!effectiveUrl" #end>
-                                                                            Agregar
-                                                                        </button>
+                                                                        <div class="add-url-actions">
+                                                                            #set($effectiveUrl = '')
+                                                                            #if($bss && $bss.size() > 0)
+                                                                                #set($effectiveUrl = $bss.get(0).downloadUrl)
+                                                                            #else
+                                                                                #set($effectiveUrl = $!it.url)
+                                                                            #end
+                                                                            <button type="button" class="btn btn-primary btn-sm add-as-url" data-name="$!it.title" #if($effectiveUrl) data-url="$!effectiveUrl" #end>
+                                                                                Agregar ítem
+                                                                            </button>
+                                                                            #if($bss && $bss.size() > 0)
+                                                                                <div class="mt-1">
+                                                                                    #foreach($b in $bss)
+                                                                                        #if($b.downloadUrl)
+                                                                                            <button type="button" class="btn btn-light btn-sm text-dark add-as-url" data-name="$!b.name" data-url="$!b.downloadUrl" title="Agregar bitstream $!b.name">Agregar bitstream</button>
+                                                                                        #else
+                                                                                            <button type="button" class="btn btn-light btn-sm text-dark add-as-url" data-name="$!b.name" title="Agregar bitstream $!b.name">Agregar bitstream</button>
+                                                                                        #end
+                                                                                    #end
+                                                                                </div>
+                                                                            #end
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                                 #set($rowIndex = $rowIndex + 1)
@@ -797,6 +810,48 @@
         <script>
             (function(){
                 var EDITOR_ID = '$name_Description';
+                function notify(message, type){
+                    try {
+                        var id = 'dspace-add-url-toast';
+                        var el = document.getElementById(id);
+                        if (!el){
+                            el = document.createElement('div');
+                            el.id = id;
+                            el.style.position = 'fixed';
+                            el.style.top = '10px';
+                            el.style.right = '10px';
+                            el.style.zIndex = '9999';
+                            el.style.maxWidth = '360px';
+                            document.body.appendChild(el);
+                        }
+                        var box = document.createElement('div');
+                        box.className = (type === 'warn' ? 'sak-banner-warn' : 'sak-banner-info');
+                        box.style.marginBottom = '8px';
+                        box.style.padding = '8px 12px';
+                        box.style.borderRadius = '4px';
+                        box.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+                        box.textContent = message;
+                        el.appendChild(box);
+                        setTimeout(function(){
+                            try { el.removeChild(box); } catch(e){}
+                        }, 3500);
+                    } catch(e) { /* no-op */ }
+                }
+                function sanitizeFilename(name){
+                    return (name||'recurso').replace(/[^A-Za-z0-9-_\.]+/g, '_');
+                }
+                function triggerDownload(url, filename){
+                    if (!url) return;
+                    try {
+                        var a = document.createElement('a');
+                        a.href = url;
+                        if (filename) a.setAttribute('download', sanitizeFilename(filename));
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function(){ try { document.body.removeChild(a); } catch(e){} }, 100);
+                    } catch(e) { /* ignore */ }
+                }
                 function getEditorHtml(){
                     try {
                         if (window.CKEDITOR && CKEDITOR.instances && CKEDITOR.instances[EDITOR_ID]) {
@@ -864,22 +919,30 @@
                     return false;
                 }
                 function addExternalResource(name, url){
-                    if (!name) return;
+                    if (!name) return false;
                     var current = getEditorHtml();
                     var container = htmlToDiv(current);
                     var block = findOrCreateResourcesBlock(container);
-                    if (url && listContains(block.list, null, url)) return;
-                    if (!url && listContains(block.list, name, null)) return;
+                    // Dedupe check
+                    if (url && listContains(block.list, null, url)) { notify('El recurso ya fue agregado.', 'warn'); return false; }
+                    if (!url && listContains(block.list, name, null)) { notify('El recurso ya fue agregado.', 'warn'); return false; }
                     var li = document.createElement('li');
                     if (url) {
                         var a = document.createElement('a');
                         a.href = url; a.textContent = name; a.target = '_blank';
+                        a.setAttribute('download', sanitizeFilename(name));
                         li.appendChild(a);
                     } else {
                         li.textContent = name;
                     }
                     block.list.appendChild(li);
                     setEditorHtml(container.innerHTML);
+                    notify('Recurso agregado.', 'info');
+                    // Si parece un enlace de descarga de bitstream, iniciar descarga inmediata también
+                    if (url && /\/bitstreams\/.+\/download/.test(url)) {
+                        triggerDownload(url, name);
+                    }
+                    return true;
                 }
                 function onAddClick(ev){
                     ev.preventDefault(); ev.stopPropagation();
