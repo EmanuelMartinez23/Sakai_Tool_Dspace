@@ -541,6 +541,7 @@
                                                             <tr>
                                                                 <th>Item</th>
                                                                 <th>Bitstreams</th>
+                                                                <th>Previsualizar EPUB</th>
                                                                 <th>Agregar como URL</th>
                                                             </tr>
                                                         </thead>
@@ -565,6 +566,22 @@
                                                                             </div>
                                                                         #else
                                                                             <span class="text-muted">No hay bitstreams</span>
+                                                                        #end
+                                                                    </td>
+                                                                    <td>
+                                                                        #if($bss && $bss.size() > 0)
+                                                                            <div class="bitstream-buttons">
+                                                                                #foreach($b in $bss)
+                                                                                    #set($name = "$!b.name")
+                                                                                    #if($name && $name.toLowerCase().endsWith('.epub') && $b.downloadUrl)
+                                                                                        <button type="button" class="btn btn-primary btn-sm preview-epub" data-url="$!b.downloadUrl" title="Previsualizar $!b.name">EPUB</button>
+                                                                                    #else
+                                                                                        <span class="text-muted">Sin vista previa</span>
+                                                                                    #end
+                                                                                #end
+                                                                            </div>
+                                                                        #else
+                                                                            <span class="text-muted">Sin bitstreams</span>
                                                                         #end
                                                                     </td>
                                                                     <td>

@@ -78,6 +78,20 @@ ASN.setupAssignNew = function(){
         $('#hasAllPurpose').show('');
     }
     ASN.resizeFrame('grow');
+
+    // EPUB preview button handler
+    try {
+        var jq = window.jQuery || window.$;
+        if (jq) {
+            jq(document).off('click.asnPreviewEpub').on('click.asnPreviewEpub', '.preview-epub', function(e){
+                e.preventDefault();
+                var url = jq(this).data('url');
+                if (!url) return;
+                var viewer = 'epub-viewer.html?src=' + encodeURIComponent(url);
+                try { window.open(viewer, '_blank'); } catch(err) { /* ignore */ }
+            });
+        }
+    } catch(ignore) {}
     
     $(".toggleRoleLink").click(function(){
         var actionType;

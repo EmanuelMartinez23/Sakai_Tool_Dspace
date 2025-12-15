@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Visor EPUB</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif; }
+    .toolbar {
+      display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: 1px solid #e5e5e5; background: #fafafa;
+    }
+    .toolbar .title { font-weight: 600; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .toolbar button { padding: .35rem .65rem; font-size: .9rem; cursor: pointer; }
+    .toolbar select { max-width: 40vw; }
+    .viewer { position: relative; flex: 1; min-height: 0; background: #f3f3f3; }
+    #viewer { position: absolute; inset: 0; margin: auto; width: min(900px, 100%); height: 100%; box-shadow: 0 0 0 1px #ddd inset; background: #fff; }
+    .footer { display: flex; align-items: center; gap: .75rem; padding: .4rem .75rem; border-top: 1px solid #e5e5e5; background: #fafafa; font-size: .85rem; }
+    .spacer { flex: 1; }
+  </style>
+  <!-- EPUB.js desde CDN (solo lectura) -->
+  <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3/dist/epub.min.js"></script>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="title" id="bookTitle">EPUB</div>
+    <button id="prevBtn" title="Anterior">⟨</button>
+    <button id="nextBtn" title="Siguiente">⟩</button>
+    <select id="tocSelect" title="Tabla de contenidos">
+      <option value="">Índice…</option>
+    </select>
+  </div>
+  <div class="viewer">
+    <div id="viewer" aria-label="EPUB viewer" role="region"></div>
+  </div>
+  <div class="footer">
+    <span id="locInfo">Página 1</span>
+    <span class="spacer"></span>
+    <a id="openSrc" href="#" target="_blank" rel="noopener" title="Abrir archivo original">Abrir archivo</a>
+  </div>
+
+  <script>
+    (function(){
+      function getParam(name){
+        var m = new RegExp('(^|[?&])' + name + '=([^&]*)').exec(location.search);
+        return m ? decodeURIComponent(m[2]) : '';
+      }
+      var src = getParam('src');
+      if (!src) {
+        document.getElementById('bookTitle').textContent = 'Sin fuente EPUB';
+        document.getElementById('locInfo').textContent = 'No se proporcionó URL de EPUB.';
+        document.getElementById('openSrc').remove();
+        return;
+      }
+      document.getElementById('openSrc').href = src;
+
+      // Inicializar libro y render
+      var book = ePub(src);
+      var rendition = book.renderTo('viewer', {
+        width: '100%',
+        height: '100%',
+        spread: 'always',
+        flow: 'paginated'
+      });
+
+      // Mostrar la primera ubicación disponible o la guardada
+      var KEY = 'epub-viewer-cfi:' + src;
+      var saved = sessionStorage.getItem(KEY);
+      rendition.display(saved || undefined);
+
+      // Navegación
+      document.getElementById('prevBtn').addEventListener('click', function(){ rendition.prev();});
+      document.getElementById('nextBtn').addEventListener('click', function(){ rendition.next();});
+
+      // Guardar ubicación actual
+      rendition.on('relocated', function(loc){
+        try {
+          sessionStorage.setItem(KEY, loc && loc.start && loc.start.cfi ? loc.start.cfi : '');
+          var percent = 0;
+          if (book && book.locations && book.locations.percentageFromCfi && loc && loc.start) {
+            try { percent = Math.round(book.locations.percentageFromCfi(loc.start.cfi) * 100); } catch(e) {}
+          }
+          document.getElementById('locInfo').textContent = percent ? ('Progreso: ' + percent + '%') : '';
+        } catch(e) {}
+      });
+
+      // Título del libro
+      book.loaded.metadata.then(function(meta){
+        if (meta && meta.title) {
+          document.getElementById('bookTitle').textContent = meta.title;
+        }
+      }).catch(function(){});
+
+      // TOC
+      book.ready.then(function(){
+        return book.loaded.navigation;
+      }).then(function(nav){
+        var select = document.getElementById('tocSelect');
+        function addOption(item, depth){
+          var opt = document.createElement('option');
+          opt.value = item.href;
+          var prefix = new Array((depth||0)+1).join('—');
+          opt.textContent = (prefix ? prefix + ' ' : '') + (item.label || item.title || 'Sección');
+          select.appendChild(opt);
+          if (item.subitems) item.subitems.forEach(function(sub){ addOption(sub, (depth||0)+1); });
+        }
+        if (nav && nav.toc) nav.toc.forEach(function(i){ addOption(i, 0); });
+        select.addEventListener('change', function(){ if (this.value) rendition.display(this.value); });
+      }).catch(function(){});
+
+      // Redimensionado responsivo
+      window.addEventListener('resize', function(){ rendition && rendition.resize('100%', '100%'); });
+    })();
+  </script>
+</body>
+</html>
