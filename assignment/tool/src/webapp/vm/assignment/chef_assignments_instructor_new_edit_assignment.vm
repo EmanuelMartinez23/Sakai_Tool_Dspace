@@ -509,6 +509,7 @@
                                 <i class="fa fa-chevron-right chevron"></i>
                                 <i class="fa fa-users icon"></i>
                                 <span class="community-name">$!comm.name</span>
+                                <button type="button" class="btn btn-light btn-sm text-dark add-as-url" style="margin-left: .5rem;" data-name="$!comm.name" #if($!comm.url) data-url="$!comm.url" #end>Agregar</button>
                             </div>
                             <div class="dspace-collections collapsible-content" style="display: none;">
                                 #set($collections = $!comm.collections)
@@ -520,6 +521,7 @@
                                                 <i class="fa fa-chevron-right chevron"></i>
                                                 <i class="fa fa-folder icon"></i>
                                                 <span class="collection-name">$!col.name</span>
+                                                <button type="button" class="btn btn-light btn-sm text-dark add-as-url" style="margin-left: .5rem;" data-name="$!col.name" #if($!col.url) data-url="$!col.url" #end>Agregar</button>
                                             </div>
                                             <div class="dspace-items-table-container collapsible-content" style="display: none;">
                                                 #set($items = $!col.items)
@@ -529,6 +531,7 @@
                                                             <tr>
                                                                 <th>Item</th>
                                                                 <th>Bitstreams</th>
+                                                                <th>Agregar como URL</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -553,6 +556,15 @@
                                                                         #else
                                                                             <span class="text-muted">No hay bitstreams</span>
                                                                         #end
+                                                                    </td>
+                                                                    <td>
+                                                                        #set($effectiveUrl = $!it.url)
+                                                                        #if(!$effectiveUrl && $bss && $bss.size() > 0)
+                                                                            #set($effectiveUrl = $bss.get(0).downloadUrl)
+                                                                        #end
+                                                                        <button type="button" class="btn btn-primary btn-sm add-as-url" data-name="$!it.title" #if($effectiveUrl) data-url="$!effectiveUrl" #end>
+                                                                            Agregar
+                                                                        </button>
                                                                     </td>
                                                                 </tr>
                                                                 #set($rowIndex = $rowIndex + 1)
@@ -778,6 +790,116 @@
                     document.addEventListener('DOMContentLoaded', bindDspaceToggles);
                 } else {
                     bindDspaceToggles();
+                }
+            })();
+        </script>
+
+        <script>
+            (function(){
+                var EDITOR_ID = '$name_Description';
+                function getEditorHtml(){
+                    try {
+                        if (window.CKEDITOR && CKEDITOR.instances && CKEDITOR.instances[EDITOR_ID]) {
+                            return CKEDITOR.instances[EDITOR_ID].getData() || '';
+                        }
+                    } catch(e) {}
+                    try {
+                        if (window.tinymce) {
+                            var ed = tinymce.get(EDITOR_ID) || tinymce.get(String(EDITOR_ID));
+                            if (ed) return ed.getContent() || '';
+                        }
+                    } catch(e) {}
+                    var ta = document.getElementById(EDITOR_ID);
+                    return ta ? ta.value : '';
+                }
+                function setEditorHtml(html){
+                    try {
+                        if (window.CKEDITOR && CKEDITOR.instances && CKEDITOR.instances[EDITOR_ID]) {
+                            CKEDITOR.instances[EDITOR_ID].setData(html);
+                            return;
+                        }
+                    } catch(e) {}
+                    try {
+                        if (window.tinymce) {
+                            var ed = tinymce.get(EDITOR_ID) || tinymce.get(String(EDITOR_ID));
+                            if (ed) { ed.setContent(html); return; }
+                        }
+                    } catch(e) {}
+                    var ta = document.getElementById(EDITOR_ID);
+                    if (ta) ta.value = html;
+                }
+                function htmlToDiv(html){ var d=document.createElement('div'); d.innerHTML = html || ''; return d; }
+                function findOrCreateResourcesBlock(root){
+                    // Try to find existing heading and list
+                    var heading = Array.prototype.find.call(root.querySelectorAll('h1,h2,h3,h4,h5,h6'), function(h){
+                        return /recursos externos/i.test(h.textContent || '');
+                    });
+                    var list = null;
+                    if (heading) {
+                        // look for next UL after heading
+                        var el = heading.nextElementSibling;
+                        while (el && el.tagName && el.tagName.toLowerCase() !== 'ul') el = el.nextElementSibling;
+                        if (el && el.tagName && el.tagName.toLowerCase() === 'ul') list = el;
+                    }
+                    if (!heading) {
+                        heading = document.createElement('h3');
+                        heading.textContent = 'Recursos externos';
+                        root.appendChild(heading);
+                    }
+                    if (!list) {
+                        list = document.createElement('ul');
+                        list.className = 'external-resources-list';
+                        heading.insertAdjacentElement('afterend', list);
+                    }
+                    return { heading: heading, list: list };
+                }
+                function listContains(list, name, url){
+                    var items = list.querySelectorAll('li');
+                    for (var i=0;i<items.length;i++){
+                        var a = items[i].querySelector('a');
+                        var text = (a ? a.textContent : items[i].textContent || '').trim();
+                        var href = (a ? a.getAttribute('href') : '') || '';
+                        if ((url && href === url) || (name && text === name)) return true;
+                    }
+                    return false;
+                }
+                function addExternalResource(name, url){
+                    if (!name) return;
+                    var current = getEditorHtml();
+                    var container = htmlToDiv(current);
+                    var block = findOrCreateResourcesBlock(container);
+                    if (url && listContains(block.list, null, url)) return;
+                    if (!url && listContains(block.list, name, null)) return;
+                    var li = document.createElement('li');
+                    if (url) {
+                        var a = document.createElement('a');
+                        a.href = url; a.textContent = name; a.target = '_blank';
+                        li.appendChild(a);
+                    } else {
+                        li.textContent = name;
+                    }
+                    block.list.appendChild(li);
+                    setEditorHtml(container.innerHTML);
+                }
+                function onAddClick(ev){
+                    ev.preventDefault(); ev.stopPropagation();
+                    var btn = ev.currentTarget || ev.target;
+                    var name = btn.getAttribute('data-name') || '';
+                    var url = btn.getAttribute('data-url') || '';
+                    if (!name) return;
+                    addExternalResource(name, url);
+                }
+                function bindAddButtons(context){
+                    var ctx = context || document;
+                    ctx.querySelectorAll('.dspace-section .add-as-url').forEach(function(btn){
+                        if (btn.__boundAdd) return; btn.__boundAdd = true;
+                        btn.addEventListener('click', onAddClick);
+                    });
+                }
+                if (document.readyState === 'loading'){
+                    document.addEventListener('DOMContentLoaded', function(){ bindAddButtons(document); });
+                } else {
+                    bindAddButtons(document);
                 }
             })();
         </script>

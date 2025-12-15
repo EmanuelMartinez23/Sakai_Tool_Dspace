@@ -85,6 +85,7 @@ public class DSpaceClientService {
                     Map<String, Object> cNode = new HashMap<>();
                     cNode.put("uuid", cUuid);
                     cNode.put("name", cName);
+                    cNode.put("url", frontBase + "/communities/" + cUuid);
                     List<Map<String, Object>> collections = new ArrayList<>();
 
                     // Colecciones por comunidad
@@ -102,6 +103,7 @@ public class DSpaceClientService {
                             Map<String, Object> colNode = new HashMap<>();
                             colNode.put("uuid", colUuid);
                             colNode.put("name", colName);
+                            colNode.put("url", frontBase + "/collections/" + colUuid);
                             List<Map<String, Object>> items = new ArrayList<>();
 
                             log.info("[DSpace]         📄 Obteniendo todos los items...");
@@ -132,6 +134,7 @@ public class DSpaceClientService {
                                     Map<String, Object> itemNode = new HashMap<>();
                                     itemNode.put("uuid", itemUuid);
                                     itemNode.put("title", title);
+                                    itemNode.put("url", frontBase + "/items/" + itemUuid);
                                     List<Map<String, Object>> bitstreams = new ArrayList<>();
 
                                     // bundles
