@@ -835,7 +835,18 @@
                         box.style.padding = '8px 12px';
                         box.style.borderRadius = '4px';
                         box.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
-                        box.textContent = message;
+                        // Evitar icono de fondo de los banners de Sakai y controlar el layout
+                        box.style.backgroundImage = 'none';
+                        box.style.display = 'flex';
+                        box.style.alignItems = 'center';
+                        box.style.gap = '8px';
+                        var icon = document.createElement('i');
+                        icon.className = type === 'warn' ? 'fa fa-exclamation-triangle' : 'fa fa-info-circle';
+                        icon.setAttribute('aria-hidden', 'true');
+                        var text = document.createElement('span');
+                        text.textContent = message;
+                        box.appendChild(icon);
+                        box.appendChild(text);
                         el.appendChild(box);
                         setTimeout(function(){
                             try { el.removeChild(box); } catch(e){}
@@ -934,8 +945,7 @@
                     var li = document.createElement('li');
                     if (url) {
                         var a = document.createElement('a');
-                        a.href = url; a.textContent = name; a.target = '_blank';
-                        a.setAttribute('download', sanitizeFilename(name));
+                        a.href = url; a.textContent = name; a.target = '_blank'; a.rel = 'noopener';
                         li.appendChild(a);
                     } else {
                         li.textContent = name;
@@ -960,10 +970,35 @@
                         btn.addEventListener('click', onAddClick);
                     });
                 }
+                // Limpia atributos no permitidos por el filtro HTML de Sakai antes de enviar el formulario
+                function sanitizeEditorContent(){
+                    try {
+                        var html = getEditorHtml();
+                        if (!html) return;
+                        var d = htmlToDiv(html);
+                        // Remover atributo download de todos los <a>
+                        Array.prototype.forEach.call(d.querySelectorAll('a[download]'), function(a){
+                            a.removeAttribute('download');
+                        });
+                        setEditorHtml(d.innerHTML);
+                    } catch(e){ /* no-op */ }
+                }
+                function bindFormSanitizer(){
+                    var form = document.getElementById('newAssignmentForm');
+                    if (!form || form.__dspaceSanitizerBound) return;
+                    form.__dspaceSanitizerBound = true;
+                    form.addEventListener('submit', function(){
+                        sanitizeEditorContent();
+                    });
+                }
                 if (document.readyState === 'loading'){
-                    document.addEventListener('DOMContentLoaded', function(){ bindAddButtons(document); });
+                    document.addEventListener('DOMContentLoaded', function(){
+                        bindAddButtons(document);
+                        bindFormSanitizer();
+                    });
                 } else {
                     bindAddButtons(document);
+                    bindFormSanitizer();
                 }
             })();
         </script>
