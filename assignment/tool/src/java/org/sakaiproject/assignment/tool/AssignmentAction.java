@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URLDecoder;
+import java.net.URL;
+import java.net.HttpURLConnection;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
@@ -14920,6 +14922,96 @@ public class AssignmentAction extends PagedResourceActionII {
             }
         }
     }    // doAttachupload
+
+    /**
+     * Download selected DSpace bitstreams and add them as attachments to the current assignment being edited
+     */
+    public void doDownload_dspace_bitstreams(RunData data) {
+        if (!"POST".equals(data.getRequest().getMethod())) {
+            return;
+        }
+        SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
+        ParameterParser params = data.getParameters();
+
+        String[] selected = params.getStrings("selectedBitstreams");
+        if (selected == null || selected.length == 0) {
+            addAlert(state, "Seleccione al menos un bitstream.");
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> bitstreams = (List<Map<String, Object>>) state.getAttribute("DS_BITSTREAMS");
+        if (bitstreams == null || bitstreams.isEmpty()) {
+            addAlert(state, "No se encontraron datos de bitstreams en la sesión.");
+            return;
+        }
+        Map<String, Map<String, Object>> byId = new HashMap<>();
+        for (Map<String, Object> b : bitstreams) {
+            Object id = b.get("uuid");
+            if (id != null) byId.put(String.valueOf(id), b);
+        }
+
+        // Prepare attachment list from state
+        List<Reference> attachments = state.getAttribute(ATTACHMENTS) != null ? (List<Reference>) state.getAttribute(ATTACHMENTS) : entityManager.newReferenceList();
+
+        int ok = 0; int fail = 0;
+        SecurityAdvisor sa = createSubmissionSecurityAdvisor();
+        String siteId = toolManager.getCurrentPlacement().getContext();
+        try {
+            securityService.pushAdvisor(sa);
+            for (String id : selected) {
+                Map<String, Object> meta = byId.get(id);
+                if (meta == null) { fail++; continue; }
+                String name = (String) meta.get("name");
+                String url = (String) meta.get("downloadUrl");
+                String mimeHint = (String) meta.get("mimeType");
+                if (StringUtils.isBlank(url)) { fail++; continue; }
+                InputStream in = null;
+                try {
+                    HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+                    con.setInstanceFollowRedirects(true);
+                    con.setRequestMethod("GET");
+                    con.connect();
+                    int code = con.getResponseCode();
+                    if (code >= 200 && code < 300) {
+                        in = con.getInputStream();
+                        String contentType = StringUtils.defaultIfBlank(con.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                        String cleanName = FilenameUtils.getName(StringUtils.defaultIfBlank(name, id));
+                        String resourceId = Validator.escapeResourceName(cleanName);
+                        // Set properties
+                        ResourcePropertiesEdit props = contentHostingService.newResourceProperties();
+                        props.addProperty(ResourceProperties.PROP_DISPLAY_NAME, cleanName);
+                        props.addProperty(ResourceProperties.PROP_DESCRIPTION, cleanName);
+                        ContentResource attachment = contentHostingService.addAttachmentResource(resourceId, siteId, "Assignments", contentType, in, props);
+                        Reference ref = entityManager.newReference(contentHostingService.getReference(attachment.getId()));
+                        attachments.add(ref);
+                        ok++;
+                    } else {
+                        fail++;
+                    }
+                } catch (Exception ex) {
+                    fail++;
+                } finally {
+                    if (in != null) try { in.close(); } catch (IOException ignore) {}
+                }
+            }
+        } finally {
+            securityService.popAdvisor(sa);
+        }
+
+        state.setAttribute(ATTACHMENTS, attachments);
+        state.setAttribute(ATTACHMENTS_MODIFIED, Boolean.TRUE);
+
+        if (ok > 0) {
+            state.setAttribute(STATE_MESSAGE, ok + (ok == 1 ? " archivo descargado y agregado correctamente." : " archivos descargados y agregados correctamente."));
+        }
+        if (fail > 0) {
+            addAlert(state, fail + (fail == 1 ? " archivo no se pudo descargar." : " archivos no se pudieron descargar."));
+        }
+
+        // Return to the same view
+        state.setAttribute(STATE_MODE, MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT);
+    }
 
     /**
      * This security advisor is used when making an assignment submission so that attachments can be added.

@@ -557,7 +557,8 @@
                                                                             <div class="bitstream-list">
                                                                                 #foreach($b in $bss)
                                                                                     <div class="bitstream-item">
-                                                                                        <span class="file-name">$!b.name</span>
+                                                                                        <input type="checkbox" name="selectedBitstreams" id="$!b.uuid" value="$!b.uuid" />
+                                                                                        <label for="$!b.uuid" class="file-name">$!b.name</label>
                                                                                         #if($b.downloadUrl)
                                                                                             <a href="$!b.downloadUrl" download="$!b.name" target="_blank" class="bitstream-link">[Link]</a>
                                                                                         #end
@@ -621,7 +622,11 @@
                 #else
                     <p class="text-muted">No hay datos de DSpace para mostrar.</p>
                 #end
-            </div>
+            <div class="mt-2">
+            <button type="button" class="btn btn-success" onclick="document.getElementById('option').value='download_dspace_bitstreams';document.newAssignmentForm.submit();return false;">
+                Descargar los archivos seleccionados
+            </button>
+        </div>
         </div>
 
         <script>
@@ -2329,8 +2334,6 @@ function showExternalIframe(title, doreload) {
 	</div>
 
 	</form>
-</div>
-</div>
 </div>
 </div>
 </div>
