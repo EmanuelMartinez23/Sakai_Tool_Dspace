@@ -15069,7 +15069,7 @@ public class AssignmentAction extends PagedResourceActionII {
                                 String line; while ((line = br.readLine()) != null) sb.append(line);
                                 String json = sb.toString();
                                 // Buscar "token":"..."
-                                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"token\"\s*:\s*\"([^\"]+)\"").matcher(json);
+                                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"token\"\\s*:\\s*\"([^\\\"]+)\"").matcher(json);
                                 if (m.find()) {
                                     bearerToken = m.group(1);
                                     log.info("[DSpace] Status OK, token obtenido (len={}): {}...", bearerToken.length(), bearerToken.substring(0, Math.min(10, bearerToken.length())));
