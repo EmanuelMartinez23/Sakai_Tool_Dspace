@@ -15000,7 +15000,7 @@ public class AssignmentAction extends PagedResourceActionII {
         }
 
         // Autenticación Bearer (DSpace 7)
-        String bearer = null;
+        String bearerToken = null;
         String cookies = null;
         try {
             if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(email) && StringUtils.isNotBlank(password)) {
@@ -15039,10 +15039,48 @@ public class AssignmentAction extends PagedResourceActionII {
                         os.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     }
                     int code = c2.getResponseCode();
+                    String setCookie2 = c2.getHeaderField("Set-Cookie");
+                    // DSpace 7 normalmente no retorna Authorization; se debe consultar /authn/status
                     if (code >= 200 && code < 300) {
-                        bearer = c2.getHeaderField("Authorization"); // "Bearer <token>"
-                        cookies = c2.getHeaderField("Set-Cookie");
-                        log.info("[DSpace] Login OK ({}), bearerPresent={}, cookiesPresent={}", code, StringUtils.isNotBlank(bearer), StringUtils.isNotBlank(cookies));
+                        // Combinar cookies CSRF + login
+                        StringBuilder cookieBuilder = new StringBuilder();
+                        if (StringUtils.isNotBlank(setCookie1)) cookieBuilder.append(setCookie1);
+                        if (StringUtils.isNotBlank(setCookie2)) {
+                            if (cookieBuilder.length() > 0) cookieBuilder.append("; ");
+                            cookieBuilder.append(setCookie2);
+                        }
+                        cookies = cookieBuilder.toString();
+                        log.info("[DSpace] Login OK ({}), cookiesPresent={}", code, StringUtils.isNotBlank(cookies));
+
+                        // Paso 3: obtener token consultando status
+                        HttpURLConnection c3 = (HttpURLConnection) new URL(apiBase + "/authn/status").openConnection();
+                        c3.setRequestMethod("GET");
+                        c3.setInstanceFollowRedirects(false);
+                        c3.setConnectTimeout(5000);
+                        c3.setReadTimeout(10000);
+                        c3.setRequestProperty("Accept", "application/json");
+                        c3.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
+                        if (StringUtils.isNotBlank(cookies)) c3.setRequestProperty("Cookie", cookies);
+                        if (StringUtils.isNotBlank(csrf)) c3.setRequestProperty("X-XSRF-TOKEN", csrf);
+                        int code3 = c3.getResponseCode();
+                        if (code3 >= 200 && code3 < 300) {
+                            try (java.io.InputStream is = c3.getInputStream(); java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
+                                StringBuilder sb = new StringBuilder();
+                                String line; while ((line = br.readLine()) != null) sb.append(line);
+                                String json = sb.toString();
+                                // Buscar "token":"..."
+                                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"token\"\s*:\s*\"([^\"]+)\"").matcher(json);
+                                if (m.find()) {
+                                    bearerToken = m.group(1);
+                                    log.info("[DSpace] Status OK, token obtenido (len={}): {}...", bearerToken.length(), bearerToken.substring(0, Math.min(10, bearerToken.length())));
+                                } else {
+                                    log.warn("[DSpace] Status OK pero no se encontró 'token' en el JSON: {}", json);
+                                }
+                            }
+                        } else {
+                            log.warn("[DSpace] authn/status FAILED http={}", code3);
+                        }
+                        c3.disconnect();
                     } else {
                         log.warn("[DSpace] Login failed HTTP {}", code);
                     }
@@ -15055,8 +15093,8 @@ public class AssignmentAction extends PagedResourceActionII {
             log.warn("[DSpace] Auth exception: {}", e.toString());
         }
         String authz = null;
-        if (StringUtils.isNotBlank(bearer)) {
-            authz = bearer.startsWith("Bearer") ? bearer : ("Bearer " + bearer);
+        if (StringUtils.isNotBlank(bearerToken)) {
+            authz = "Bearer " + bearerToken;
         }
 
         // Preparar lista de adjuntos desde el estado
@@ -15101,6 +15139,31 @@ public class AssignmentAction extends PagedResourceActionII {
                             log.info("[DSpace] Descarga API OK uuid={} contentType={} length={}", id, contentType, con.getContentLengthLong());
                         } else {
                             log.warn("[DSpace] API download FAILED uuid={} http={}", id, code);
+                            // Segundo intento: endpoint /download puede gestionar cabeceras de forma distinta
+                            try {
+                                HttpURLConnection conDl = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/download").openConnection();
+                                conDl.setInstanceFollowRedirects(false);
+                                conDl.setRequestMethod("GET");
+                                conDl.setConnectTimeout(5000);
+                                conDl.setReadTimeout(30000);
+                                conDl.setRequestProperty("Authorization", authz);
+                                if (StringUtils.isNotBlank(cookies)) {
+                                    conDl.setRequestProperty("Cookie", cookies);
+                                }
+                                conDl.setRequestProperty("Accept", "*/*");
+                                conDl.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
+                                int codeDl = conDl.getResponseCode();
+                                if (codeDl >= 200 && codeDl < 300) {
+                                    in = conDl.getInputStream();
+                                    contentType = StringUtils.defaultIfBlank(conDl.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                                    downloaded = true;
+                                    log.info("[DSpace] Descarga API(download) OK uuid={} contentType={} length={}", id, contentType, conDl.getContentLengthLong());
+                                } else {
+                                    log.warn("[DSpace] API download(alt) FAILED uuid={} http={}", id, codeDl);
+                                }
+                            } catch (Exception exAlt) {
+                                log.warn("[DSpace] API download(alt) exception uuid={} ex={}", id, exAlt.toString());
+                            }
                         }
                     }
 
@@ -15129,7 +15192,8 @@ public class AssignmentAction extends PagedResourceActionII {
 
                     if (downloaded && in != null) {
                         String cleanName = FilenameUtils.getName(StringUtils.defaultIfBlank(name, id));
-                        String resourceId = Validator.escapeResourceName(cleanName);
+                        // Evitar colisiones empleando el UUID en el nombre del recurso
+                        String resourceId = Validator.escapeResourceName(cleanName + "-" + id);
                         ResourcePropertiesEdit props = contentHostingService.newResourceProperties();
                         props.addProperty(ResourceProperties.PROP_DISPLAY_NAME, cleanName);
                         props.addProperty(ResourceProperties.PROP_DESCRIPTION, cleanName);
