@@ -404,7 +404,8 @@
 		</h1>
 	</div>
 
-	#if ($alertMessage)
+	## Mostrar alerta en rojo solo si NO hay mensaje de éxito simultáneo
+	#if ($alertMessage && !$successMessage)
 		<div class="sak-banner-error" id="generalAlert">
 			<strong>$tlang.getString("gen.alert")</strong> $alertMessage
 		</div>

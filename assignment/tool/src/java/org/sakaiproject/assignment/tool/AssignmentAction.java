@@ -15005,7 +15005,7 @@ public class AssignmentAction extends PagedResourceActionII {
             if (id != null) byId.put(String.valueOf(id), b);
         }
 
-        // Autenticación Bearer (DSpace 7)
+        // Autenticación Bearer
         String bearerToken = null;
         String cookies = null;
         try {
@@ -15046,7 +15046,6 @@ public class AssignmentAction extends PagedResourceActionII {
                     }
                     int code = c2.getResponseCode();
                     String setCookie2 = c2.getHeaderField("Set-Cookie");
-                    // DSpace 7 normalmente no retorna Authorization; se debe consultar /authn/status
                     if (code >= 200 && code < 300) {
                         // Combinar cookies CSRF + login
                         StringBuilder cookieBuilder = new StringBuilder();
