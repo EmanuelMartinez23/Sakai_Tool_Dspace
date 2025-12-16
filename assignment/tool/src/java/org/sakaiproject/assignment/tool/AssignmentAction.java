@@ -11077,6 +11077,9 @@ public class AssignmentAction extends PagedResourceActionII {
             } else if ("options".equals(option)) {
                 // go to the options view
                 doOptions(data);
+            } else if ("download_dspace_bitstreams".equals(option)) {
+                // download selected DSpace bitstreams and attach them
+                doDownload_dspace_bitstreams(data);
             }
 
         }
