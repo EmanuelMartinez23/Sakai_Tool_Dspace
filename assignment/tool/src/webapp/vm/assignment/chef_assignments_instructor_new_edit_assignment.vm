@@ -410,6 +410,13 @@
 		</div>
 	#end
 
+	## Success/info message (STATE_MESSAGE) should be green/blue, not red
+	#if ($successMessage)
+		<div class="sak-banner-success" id="generalSuccess">
+			$formattedText.escapeHtml($successMessage)
+		</div>
+	#end
+
 	#set($submitnotif="submitnotifTop")
 
 	<form name="newAssignmentForm" id="newAssignmentForm" action="#toolForm("AssignmentAction")" method="post" onsubmit="return true;">

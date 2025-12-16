@@ -3022,6 +3022,12 @@ public class AssignmentAction extends PagedResourceActionII {
         // set up context variables
         setAssignmentFormContext(state, context);
 
+        // Expose success message (STATE_MESSAGE) to the template as a green/blue banner instead of red alert
+        String _successMsg = (String) state.getAttribute(STATE_MESSAGE);
+        if (StringUtils.isNotBlank(_successMsg)) {
+            context.put("successMessage", _successMsg);
+        }
+
         context.put("fField", state.getAttribute(NEW_ASSIGNMENT_FOCUS));
 
         context.put("group_submissions_enabled", serverConfigurationService.getBoolean("assignment.group.submission.enabled", true));
