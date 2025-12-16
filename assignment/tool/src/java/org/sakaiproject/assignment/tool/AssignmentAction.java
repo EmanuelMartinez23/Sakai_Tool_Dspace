@@ -14951,6 +14951,58 @@ public class AssignmentAction extends PagedResourceActionII {
             if (id != null) byId.put(String.valueOf(id), b);
         }
 
+        // Config DSpace
+        String apiBase = serverConfigurationService.getString("dspace.api.base", null);
+        String frontBase = serverConfigurationService.getString("dspace.front.base", null);
+        String email = serverConfigurationService.getString("dspace.auth.email", null);
+        String password = serverConfigurationService.getString("dspace.auth.password", null);
+
+        // Autenticación Bearer (DSpace 7)
+        String bearer = null;
+        String cookies = null;
+        try {
+            if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(email) && StringUtils.isNotBlank(password)) {
+                // Paso 1: obtener CSRF
+                HttpURLConnection c1 = (HttpURLConnection) new URL(apiBase + "/security/csrf").openConnection();
+                c1.setRequestMethod("GET");
+                c1.setInstanceFollowRedirects(false);
+                c1.setDoInput(true);
+                c1.connect();
+                String csrf = c1.getHeaderField("X-CSRF-TOKEN");
+                String setCookie1 = c1.getHeaderField("Set-Cookie");
+                c1.disconnect();
+
+                // Paso 2: login
+                if (StringUtils.isNotBlank(csrf)) {
+                    HttpURLConnection c2 = (HttpURLConnection) new URL(apiBase + "/authn/login").openConnection();
+                    c2.setRequestMethod("POST");
+                    c2.setInstanceFollowRedirects(false);
+                    c2.setDoOutput(true);
+                    c2.setRequestProperty("X-XSRF-TOKEN", csrf);
+                    if (StringUtils.isNotBlank(setCookie1)) {
+                        c2.setRequestProperty("Cookie", setCookie1);
+                    }
+                    String body = "user=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8.name()) +
+                                  "&password=" + java.net.URLEncoder.encode(password, java.nio.charset.StandardCharsets.UTF_8.name());
+                    try (java.io.OutputStream os = c2.getOutputStream()) {
+                        os.write(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                    int code = c2.getResponseCode();
+                    if (code >= 200 && code < 300) {
+                        bearer = c2.getHeaderField("Authorization"); // "Bearer <token>"
+                        cookies = c2.getHeaderField("Set-Cookie");
+                    }
+                    c2.disconnect();
+                }
+            }
+        } catch (Exception e) {
+            log.warn("DSpace auth failed: {}", e.toString());
+        }
+        String authz = null;
+        if (StringUtils.isNotBlank(bearer)) {
+            authz = bearer.startsWith("Bearer") ? bearer : ("Bearer " + bearer);
+        }
+
         // Prepare attachment list from state
         List<Reference> attachments = state.getAttribute(ATTACHMENTS) != null ? (List<Reference>) state.getAttribute(ATTACHMENTS) : entityManager.newReferenceList();
 
@@ -14963,22 +15015,55 @@ public class AssignmentAction extends PagedResourceActionII {
                 Map<String, Object> meta = byId.get(id);
                 if (meta == null) { fail++; continue; }
                 String name = (String) meta.get("name");
-                String url = (String) meta.get("downloadUrl");
                 String mimeHint = (String) meta.get("mimeType");
-                if (StringUtils.isBlank(url)) { fail++; continue; }
+
                 InputStream in = null;
+                String contentType = null;
+                boolean downloaded = false;
                 try {
-                    HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
-                    con.setInstanceFollowRedirects(true);
-                    con.setRequestMethod("GET");
-                    con.connect();
-                    int code = con.getResponseCode();
-                    if (code >= 200 && code < 300) {
-                        in = con.getInputStream();
-                        String contentType = StringUtils.defaultIfBlank(con.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                    // Preferir API autenticada si tenemos token
+                    if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(authz)) {
+                        HttpURLConnection con = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/content").openConnection();
+                        con.setInstanceFollowRedirects(false);
+                        con.setRequestMethod("GET");
+                        con.setRequestProperty("Authorization", authz);
+                        if (StringUtils.isNotBlank(cookies)) {
+                            con.setRequestProperty("Cookie", cookies);
+                        }
+                        con.setRequestProperty("Accept", "*/*");
+                        con.connect();
+                        int code = con.getResponseCode();
+                        if (code >= 200 && code < 300) {
+                            in = con.getInputStream();
+                            contentType = StringUtils.defaultIfBlank(con.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                            downloaded = true;
+                        } else {
+                            log.warn("[DSpace] Download via API failed for {} with HTTP {}", id, code);
+                        }
+                    }
+
+                    // Fallback: usar URL del front si existe
+                    if (!downloaded) {
+                        String frontUrl = frontBase != null ? (frontBase + "/bitstreams/" + id + "/download") : null;
+                        if (StringUtils.isNotBlank(frontUrl)) {
+                            HttpURLConnection con2 = (HttpURLConnection) new URL(frontUrl).openConnection();
+                            con2.setInstanceFollowRedirects(true);
+                            con2.setRequestMethod("GET");
+                            con2.connect();
+                            int code2 = con2.getResponseCode();
+                            if (code2 >= 200 && code2 < 300) {
+                                in = con2.getInputStream();
+                                contentType = StringUtils.defaultIfBlank(con2.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                                downloaded = true;
+                            } else {
+                                log.warn("[DSpace] Fallback front download failed for {} with HTTP {}", id, code2);
+                            }
+                        }
+                    }
+
+                    if (downloaded && in != null) {
                         String cleanName = FilenameUtils.getName(StringUtils.defaultIfBlank(name, id));
                         String resourceId = Validator.escapeResourceName(cleanName);
-                        // Set properties
                         ResourcePropertiesEdit props = contentHostingService.newResourceProperties();
                         props.addProperty(ResourceProperties.PROP_DISPLAY_NAME, cleanName);
                         props.addProperty(ResourceProperties.PROP_DESCRIPTION, cleanName);
@@ -14990,6 +15075,7 @@ public class AssignmentAction extends PagedResourceActionII {
                         fail++;
                     }
                 } catch (Exception ex) {
+                    log.warn("[DSpace] Error downloading bitstream {}: {}", id, ex.toString());
                     fail++;
                 } finally {
                     if (in != null) try { in.close(); } catch (IOException ignore) {}
@@ -15009,7 +15095,6 @@ public class AssignmentAction extends PagedResourceActionII {
             addAlert(state, fail + (fail == 1 ? " archivo no se pudo descargar." : " archivos no se pudieron descargar."));
         }
 
-        // Return to the same view
         state.setAttribute(STATE_MODE, MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT);
     }
 
