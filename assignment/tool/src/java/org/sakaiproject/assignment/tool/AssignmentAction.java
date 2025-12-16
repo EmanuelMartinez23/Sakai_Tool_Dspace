@@ -15118,6 +15118,33 @@ public class AssignmentAction extends PagedResourceActionII {
                 String contentType = null;
                 boolean downloaded = false;
                 try {
+                    // Intentar PRIMERO por el Front (bitstreams públicos no requieren auth)
+                    try {
+                        String metaUrl = meta.get("downloadUrl") != null ? String.valueOf(meta.get("downloadUrl")) : null;
+                        String frontUrl = StringUtils.isNotBlank(metaUrl) ? metaUrl : (frontBase != null ? (frontBase + "/bitstreams/" + id + "/download") : null);
+                        if (StringUtils.isNotBlank(frontUrl)) {
+                            HttpURLConnection cf = (HttpURLConnection) new URL(frontUrl).openConnection();
+                            cf.setInstanceFollowRedirects(true);
+                            cf.setRequestMethod("GET");
+                            cf.setConnectTimeout(5000);
+                            cf.setReadTimeout(30000);
+                            cf.setRequestProperty("Accept", "*/*");
+                            cf.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
+                            int codeF = cf.getResponseCode();
+                            if (codeF >= 200 && codeF < 300) {
+                                in = cf.getInputStream();
+                                contentType = StringUtils.defaultIfBlank(cf.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                                downloaded = true;
+                                log.info("[DSpace] Descarga FRONT OK uuid={} contentType={} length={}", id, contentType, cf.getContentLengthLong());
+                            } else {
+                                log.warn("[DSpace] FRONT download FAILED uuid={} http={}", id, codeF);
+                            }
+                        }
+                    } catch (Exception exFront) {
+                        log.warn("[DSpace] FRONT download exception uuid={} ex={}", id, exFront.toString());
+                    }
+
+                    // Si el front falla, intentar por API autenticada
                     // Preferir API autenticada si tenemos token
                     if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(authz)) {
                         HttpURLConnection con = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/content").openConnection();
