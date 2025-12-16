@@ -88,26 +88,6 @@
         <load-on-startup>1</load-on-startup>
      </servlet>
 
-    <!-- EPUB Viewer Servlet: serves a standalone EPUB.js-based viewer inside the assignment tool context -->
-    <servlet>
-        <servlet-name>sakai.assignment.epub.viewer</servlet-name>
-        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubViewerServlet</servlet-class>
-        <load-on-startup>1</load-on-startup>
-    </servlet>
-
-    <servlet-mapping>
-        <servlet-name>sakai.assignment.epub.viewer</servlet-name>
-        <url-pattern>/epub/view</url-pattern>
-    </servlet-mapping>
-
-    <!-- Ensure Sakai request filter also applies to the EPUB viewer -->
-    <filter-mapping>
-        <filter-name>sakai.request</filter-name>
-        <servlet-name>sakai.assignment.epub.viewer</servlet-name>
-        <dispatcher>REQUEST</dispatcher>
-        <dispatcher>FORWARD</dispatcher>
-        <dispatcher>INCLUDE</dispatcher>
-    </filter-mapping>
 
     <listener>
         <listener-class>org.sakaiproject.util.ToolListener</listener-class>
