@@ -574,7 +574,7 @@
                                                                                 #foreach($b in $bss)
                                                                                     #set($name = "$!b.name")
                                                                                     #if($name && $name.toLowerCase().endsWith('.epub') && $b.downloadUrl)
-                                                                                        <a class="btn btn-primary btn-sm" href="$request.contextPath/epub/view#src=$!b.downloadUrl" target="_blank" rel="noopener" title="Previsualizar $!b.name">EPUB</a>
+                                                                                        <a class="btn btn-primary btn-sm open-epub" href="$request.contextPath/epub/view" data-epub-src="$!b.downloadUrl" target="_blank" rel="noopener" title="Previsualizar $!b.name">EPUB</a>
                                                                                     #else
                                                                                         <span class="text-muted">Sin vista previa</span>
                                                                                     #end
@@ -626,6 +626,41 @@
 
         <script>
             (function(){
+                // Descarga y apertura del visor EPUB: al hacer clic en el botón, inicia la descarga y abre el visor en nueva pestaña
+                try {
+                    document.addEventListener('click', function(ev){
+                        var a = ev.target;
+                        if (a && !(a.classList && a.classList.contains('open-epub')) && a.closest) {
+                            a = a.closest('a.open-epub');
+                        }
+                        if (!a || !(a.classList && a.classList.contains('open-epub'))) return;
+                        ev.preventDefault();
+                        var downloadUrl = a.getAttribute('data-epub-src');
+                        if (!downloadUrl) return;
+                        // Lanzar descarga del archivo EPUB
+                        try {
+                            var dl = document.createElement('a');
+                            dl.href = downloadUrl;
+                            // Nombre sugerido
+                            var fname = (downloadUrl.split('?')[0].split('#')[0].split('/').pop() || 'recurso.epub');
+                            if (fname && fname.indexOf('.') === -1) fname += '.epub';
+                            dl.setAttribute('download', fname);
+                            dl.style.display = 'none';
+                            document.body.appendChild(dl);
+                            dl.click();
+                            setTimeout(function(){ try { document.body.removeChild(dl); } catch(e){} }, 0);
+                        } catch(e) { /* ignore */ }
+                        // Abrir visor en nueva pestaña con ?src=<url codificada>
+                        var viewerBase = a.getAttribute('href') || (window.SAKAI_CONTEXT_PATH ? (window.SAKAI_CONTEXT_PATH + '/epub/view') : '/epub/view');
+                        var viewerUrl = viewerBase + '?src=' + encodeURIComponent(downloadUrl);
+                        var w = window.open(viewerUrl, '_blank', 'noopener');
+                        if (!w) {
+                            // Fallback si el popup fue bloqueado: navegar en la misma pestaña
+                            window.location.href = viewerUrl;
+                        }
+                    }, true);
+                } catch(e) { /* no-op */ }
+
                 // Paginación simple sin dependencias externas (solo requiere jQuery ya presente en Sakai)
                 function initSimplePagination(context, options){
                     var jq = window.jQuery; if (!jq) return;
