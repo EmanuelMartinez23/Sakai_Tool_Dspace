@@ -14927,35 +14927,74 @@ public class AssignmentAction extends PagedResourceActionII {
      * Download selected DSpace bitstreams and add them as attachments to the current assignment being edited
      */
     public void doDownload_dspace_bitstreams(RunData data) {
+        // Solo aceptar POST
         if (!"POST".equals(data.getRequest().getMethod())) {
             return;
         }
         SessionState state = ((JetspeedRunData) data).getPortletSessionState(((JetspeedRunData) data).getJs_peid());
         ParameterParser params = data.getParameters();
 
+        // Parámetros seleccionados
         String[] selected = params.getStrings("selectedBitstreams");
+        log.info("[DSpace] doDownload_dspace_bitstreams invoked. selectedBitstreams count={} ", (selected == null ? 0 : selected.length));
         if (selected == null || selected.length == 0) {
             addAlert(state, "Seleccione al menos un bitstream.");
             return;
         }
 
+        // Obtener/rehidratar bitstreams desde el estado; si no existen, re-cargar desde DSpace
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> bitstreams = (List<Map<String, Object>>) state.getAttribute("DS_BITSTREAMS");
-        if (bitstreams == null || bitstreams.isEmpty()) {
-            addAlert(state, "No se encontraron datos de bitstreams en la sesión.");
-            return;
-        }
-        Map<String, Map<String, Object>> byId = new HashMap<>();
-        for (Map<String, Object> b : bitstreams) {
-            Object id = b.get("uuid");
-            if (id != null) byId.put(String.valueOf(id), b);
-        }
 
         // Config DSpace
         String apiBase = serverConfigurationService.getString("dspace.api.base", null);
         String frontBase = serverConfigurationService.getString("dspace.front.base", null);
         String email = serverConfigurationService.getString("dspace.auth.email", null);
         String password = serverConfigurationService.getString("dspace.auth.password", null);
+        long ttlSec = serverConfigurationService.getInt("dspace.cache.ttl.seconds", 300);
+
+        if (bitstreams == null || bitstreams.isEmpty()) {
+            try {
+                if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(frontBase) && StringUtils.isNotBlank(email) && StringUtils.isNotBlank(password)) {
+                    log.info("[DSpace] DS_BITSTREAMS no encontrado en sesión. Rehidratando desde API...");
+                    org.sakaiproject.assignment.tool.dspace.DSpaceClientService dsClient = new org.sakaiproject.assignment.tool.dspace.DSpaceClientService(apiBase, frontBase, email, password, ttlSec * 1000L);
+                    List<Map<String, Object>> tree = dsClient.getDSpaceTree(false);
+                    List<Map<String, Object>> collected = new ArrayList<>();
+                    for (Map<String, Object> c : tree) {
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> ccols = (List<Map<String, Object>>) c.get("collections");
+                        if (ccols == null) continue;
+                        for (Map<String, Object> col : ccols) {
+                            @SuppressWarnings("unchecked")
+                            List<Map<String, Object>> items = (List<Map<String, Object>>) col.get("items");
+                            if (items == null) continue;
+                            for (Map<String, Object> it : items) {
+                                @SuppressWarnings("unchecked")
+                                List<Map<String, Object>> bss = (List<Map<String, Object>>) it.get("bitstreams");
+                                if (bss != null) collected.addAll(bss);
+                            }
+                        }
+                    }
+                    bitstreams = collected;
+                    state.setAttribute("DS_BITSTREAMS", bitstreams);
+                    log.info("[DSpace] Rehidratado DS_BITSTREAMS con {} entradas.", (bitstreams == null ? 0 : bitstreams.size()));
+                }
+            } catch (Exception e) {
+                log.warn("[DSpace] Error rehidratando DS_BITSTREAMS: {}", e.toString());
+            }
+        }
+
+        if (bitstreams == null || bitstreams.isEmpty()) {
+            addAlert(state, "No se encontraron datos de bitstreams en la sesión.");
+            return;
+        }
+
+        // Index por UUID
+        Map<String, Map<String, Object>> byId = new HashMap<>();
+        for (Map<String, Object> b : bitstreams) {
+            Object id = b.get("uuid");
+            if (id != null) byId.put(String.valueOf(id), b);
+        }
 
         // Autenticación Bearer (DSpace 7)
         String bearer = null;
@@ -14967,9 +15006,14 @@ public class AssignmentAction extends PagedResourceActionII {
                 c1.setRequestMethod("GET");
                 c1.setInstanceFollowRedirects(false);
                 c1.setDoInput(true);
-                c1.connect();
+                c1.setConnectTimeout(5000);
+                c1.setReadTimeout(10000);
+                c1.setRequestProperty("Accept", "application/json");
+                c1.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
+                int code1 = c1.getResponseCode();
                 String csrf = c1.getHeaderField("X-CSRF-TOKEN");
                 String setCookie1 = c1.getHeaderField("Set-Cookie");
+                log.info("[DSpace] CSRF resp={} tokenPresent={} cookiePresent={}", code1, StringUtils.isNotBlank(csrf), StringUtils.isNotBlank(setCookie1));
                 c1.disconnect();
 
                 // Paso 2: login
@@ -14978,7 +15022,11 @@ public class AssignmentAction extends PagedResourceActionII {
                     c2.setRequestMethod("POST");
                     c2.setInstanceFollowRedirects(false);
                     c2.setDoOutput(true);
+                    c2.setConnectTimeout(5000);
+                    c2.setReadTimeout(15000);
                     c2.setRequestProperty("X-XSRF-TOKEN", csrf);
+                    c2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+                    c2.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
                     if (StringUtils.isNotBlank(setCookie1)) {
                         c2.setRequestProperty("Cookie", setCookie1);
                     }
@@ -14991,19 +15039,24 @@ public class AssignmentAction extends PagedResourceActionII {
                     if (code >= 200 && code < 300) {
                         bearer = c2.getHeaderField("Authorization"); // "Bearer <token>"
                         cookies = c2.getHeaderField("Set-Cookie");
+                        log.info("[DSpace] Login OK ({}), bearerPresent={}, cookiesPresent={}", code, StringUtils.isNotBlank(bearer), StringUtils.isNotBlank(cookies));
+                    } else {
+                        log.warn("[DSpace] Login failed HTTP {}", code);
                     }
                     c2.disconnect();
+                } else {
+                    log.warn("[DSpace] CSRF token ausente; no se intentará login.");
                 }
             }
         } catch (Exception e) {
-            log.warn("DSpace auth failed: {}", e.toString());
+            log.warn("[DSpace] Auth exception: {}", e.toString());
         }
         String authz = null;
         if (StringUtils.isNotBlank(bearer)) {
             authz = bearer.startsWith("Bearer") ? bearer : ("Bearer " + bearer);
         }
 
-        // Prepare attachment list from state
+        // Preparar lista de adjuntos desde el estado
         List<Reference> attachments = state.getAttribute(ATTACHMENTS) != null ? (List<Reference>) state.getAttribute(ATTACHMENTS) : entityManager.newReferenceList();
 
         int ok = 0; int fail = 0;
@@ -15013,7 +15066,10 @@ public class AssignmentAction extends PagedResourceActionII {
             securityService.pushAdvisor(sa);
             for (String id : selected) {
                 Map<String, Object> meta = byId.get(id);
-                if (meta == null) { fail++; continue; }
+                if (meta == null) {
+                    log.warn("[DSpace] UUID {} no encontrado en DS_BITSTREAMS", id);
+                    fail++; continue;
+                }
                 String name = (String) meta.get("name");
                 String mimeHint = (String) meta.get("mimeType");
 
@@ -15026,19 +15082,22 @@ public class AssignmentAction extends PagedResourceActionII {
                         HttpURLConnection con = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/content").openConnection();
                         con.setInstanceFollowRedirects(false);
                         con.setRequestMethod("GET");
+                        con.setConnectTimeout(5000);
+                        con.setReadTimeout(30000);
                         con.setRequestProperty("Authorization", authz);
                         if (StringUtils.isNotBlank(cookies)) {
                             con.setRequestProperty("Cookie", cookies);
                         }
                         con.setRequestProperty("Accept", "*/*");
-                        con.connect();
+                        con.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
                         int code = con.getResponseCode();
                         if (code >= 200 && code < 300) {
                             in = con.getInputStream();
                             contentType = StringUtils.defaultIfBlank(con.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
                             downloaded = true;
+                            log.info("[DSpace] Descarga API OK uuid={} contentType={} length={}", id, contentType, con.getContentLengthLong());
                         } else {
-                            log.warn("[DSpace] Download via API failed for {} with HTTP {}", id, code);
+                            log.warn("[DSpace] API download FAILED uuid={} http={}", id, code);
                         }
                     }
 
@@ -15049,14 +15108,18 @@ public class AssignmentAction extends PagedResourceActionII {
                             HttpURLConnection con2 = (HttpURLConnection) new URL(frontUrl).openConnection();
                             con2.setInstanceFollowRedirects(true);
                             con2.setRequestMethod("GET");
-                            con2.connect();
+                            con2.setConnectTimeout(5000);
+                            con2.setReadTimeout(30000);
+                            con2.setRequestProperty("Accept", "*/*");
+                            con2.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
                             int code2 = con2.getResponseCode();
                             if (code2 >= 200 && code2 < 300) {
                                 in = con2.getInputStream();
                                 contentType = StringUtils.defaultIfBlank(con2.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
                                 downloaded = true;
+                                log.info("[DSpace] Descarga FRONT OK uuid={} contentType={} length={}", id, contentType, con2.getContentLengthLong());
                             } else {
-                                log.warn("[DSpace] Fallback front download failed for {} with HTTP {}", id, code2);
+                                log.warn("[DSpace] FRONT download FAILED uuid={} http={}", id, code2);
                             }
                         }
                     }
@@ -15075,7 +15138,7 @@ public class AssignmentAction extends PagedResourceActionII {
                         fail++;
                     }
                 } catch (Exception ex) {
-                    log.warn("[DSpace] Error downloading bitstream {}: {}", id, ex.toString());
+                    log.warn("[DSpace] Error descargando/adjuntando uuid={} ex={}", id, ex.toString());
                     fail++;
                 } finally {
                     if (in != null) try { in.close(); } catch (IOException ignore) {}
@@ -15085,6 +15148,7 @@ public class AssignmentAction extends PagedResourceActionII {
             securityService.popAdvisor(sa);
         }
 
+        // Persistir resultado
         state.setAttribute(ATTACHMENTS, attachments);
         state.setAttribute(ATTACHMENTS_MODIFIED, Boolean.TRUE);
 
@@ -15095,6 +15159,7 @@ public class AssignmentAction extends PagedResourceActionII {
             addAlert(state, fail + (fail == 1 ? " archivo no se pudo descargar." : " archivos no se pudieron descargar."));
         }
 
+        // Volver al editor para mostrar adjuntos actualizados
         state.setAttribute(STATE_MODE, MODE_INSTRUCTOR_NEW_EDIT_ASSIGNMENT);
     }
 
