@@ -15118,35 +15118,57 @@ public class AssignmentAction extends PagedResourceActionII {
                 String contentType = null;
                 boolean downloaded = false;
                 try {
-                    // Intentar PRIMERO por el Front (bitstreams públicos no requieren auth)
+                    // Intentar PRIMERO por la API en modo ANÓNIMO (DSpace 9 expone bitstreams públicos)
                     try {
-                        String metaUrl = meta.get("downloadUrl") != null ? String.valueOf(meta.get("downloadUrl")) : null;
-                        String frontUrl = StringUtils.isNotBlank(metaUrl) ? metaUrl : (frontBase != null ? (frontBase + "/bitstreams/" + id + "/download") : null);
-                        if (StringUtils.isNotBlank(frontUrl)) {
-                            HttpURLConnection cf = (HttpURLConnection) new URL(frontUrl).openConnection();
-                            cf.setInstanceFollowRedirects(true);
-                            cf.setRequestMethod("GET");
-                            cf.setConnectTimeout(5000);
-                            cf.setReadTimeout(30000);
-                            cf.setRequestProperty("Accept", "*/*");
-                            cf.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
-                            int codeF = cf.getResponseCode();
-                            if (codeF >= 200 && codeF < 300) {
-                                in = cf.getInputStream();
-                                contentType = StringUtils.defaultIfBlank(cf.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                        if (StringUtils.isNotBlank(apiBase)) {
+                            HttpURLConnection conAnon = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/content").openConnection();
+                            conAnon.setInstanceFollowRedirects(false);
+                            conAnon.setRequestMethod("GET");
+                            conAnon.setConnectTimeout(5000);
+                            conAnon.setReadTimeout(30000);
+                            conAnon.setRequestProperty("Accept", "*/*");
+                            conAnon.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
+                            int codeAnon = conAnon.getResponseCode();
+                            if (codeAnon >= 200 && codeAnon < 300) {
+                                in = conAnon.getInputStream();
+                                contentType = StringUtils.defaultIfBlank(conAnon.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
                                 downloaded = true;
-                                log.info("[DSpace] Descarga FRONT OK uuid={} contentType={} length={}", id, contentType, cf.getContentLengthLong());
+                                log.info("[DSpace] Descarga API anónima OK uuid={} contentType={} length={}", id, contentType, conAnon.getContentLengthLong());
                             } else {
-                                log.warn("[DSpace] FRONT download FAILED uuid={} http={}", id, codeF);
+                                log.warn("[DSpace] API anónima FAILED uuid={} http={}", id, codeAnon);
                             }
                         }
-                    } catch (Exception exFront) {
-                        log.warn("[DSpace] FRONT download exception uuid={} ex={}", id, exFront.toString());
+                    } catch (Exception exAnon) {
+                        log.warn("[DSpace] API anónima exception uuid={} ex={}", id, exAnon.toString());
+                    }
+
+                    // Segundo intento ANÓNIMO: endpoint /download (algunos proxies devuelven 200 aquí)
+                    try {
+                        if (!downloaded && StringUtils.isNotBlank(apiBase)) {
+                            HttpURLConnection conAnonDl = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/download").openConnection();
+                            conAnonDl.setInstanceFollowRedirects(false);
+                            conAnonDl.setRequestMethod("GET");
+                            conAnonDl.setConnectTimeout(5000);
+                            conAnonDl.setReadTimeout(30000);
+                            conAnonDl.setRequestProperty("Accept", "*/*");
+                            conAnonDl.setRequestProperty("User-Agent", "Sakai-Assignment-DSpace/1.0");
+                            int codeAnonDl = conAnonDl.getResponseCode();
+                            if (codeAnonDl >= 200 && codeAnonDl < 300) {
+                                in = conAnonDl.getInputStream();
+                                contentType = StringUtils.defaultIfBlank(conAnonDl.getContentType(), StringUtils.defaultString(mimeHint, "application/octet-stream"));
+                                downloaded = true;
+                                log.info("[DSpace] Descarga API anónima (download) OK uuid={} contentType={} length={}", id, contentType, conAnonDl.getContentLengthLong());
+                            } else {
+                                log.warn("[DSpace] API anónima (download) FAILED uuid={} http={}", id, codeAnonDl);
+                            }
+                        }
+                    } catch (Exception exAnonDl) {
+                        log.warn("[DSpace] API anónima (download) exception uuid={} ex={}", id, exAnonDl.toString());
                     }
 
                     // Si el front falla, intentar por API autenticada
                     // Preferir API autenticada si tenemos token
-                    if (StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(authz)) {
+                    if (!downloaded && StringUtils.isNotBlank(apiBase) && StringUtils.isNotBlank(authz)) {
                         HttpURLConnection con = (HttpURLConnection) new URL(apiBase + "/core/bitstreams/" + id + "/content").openConnection();
                         con.setInstanceFollowRedirects(false);
                         con.setRequestMethod("GET");
