@@ -99,8 +99,46 @@
         <url-pattern>/epub/proxy</url-pattern>
      </servlet-mapping>
 
-    <listener>
-        <listener-class>org.sakaiproject.util.ToolListener</listener-class>
+     <!-- EPUB preview UI (Moodle-like) -->
+     <servlet>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubPreviewServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+     </servlet>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <url-pattern>/epub/preview</url-pattern>
+     </servlet-mapping>
+
+     <!-- EPUB internal file serving -->
+     <servlet>
+        <servlet-name>sakai.assignment.epub.serve</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubServeServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+     </servlet>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.serve</servlet-name>
+        <url-pattern>/epub/serve</url-pattern>
+     </servlet-mapping>
+
+     <!-- Ensure Sakai RequestFilter applies to EPUB servlets -->
+     <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+     </filter-mapping>
+     <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.assignment.epub.serve</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+     </filter-mapping>
+ 
+     <listener>
+         <listener-class>org.sakaiproject.util.ToolListener</listener-class>
     </listener>
 	<listener>
 		<listener-class>org.sakaiproject.util.SakaiContextLoaderListener</listener-class>
