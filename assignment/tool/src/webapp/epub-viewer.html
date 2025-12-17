@@ -65,8 +65,9 @@
         return;
       }
 
-      // Inicializar libro
-      var book = ePub(src);
+      // Inicializar libro a través del proxy local para evitar CORS y soportar archivos grandes
+      var proxyUrl = 'epub/proxy?src=' + encodeURIComponent(src);
+      var book = ePub(proxyUrl);
       var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
       rendition.display();
 

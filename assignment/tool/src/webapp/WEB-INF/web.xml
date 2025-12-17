@@ -88,6 +88,16 @@
         <load-on-startup>1</load-on-startup>
      </servlet>
 
+     <!-- EPUB proxy servlet: same-origin streaming for external EPUBs -->
+     <servlet>
+        <servlet-name>sakai.assignment.epub.proxy</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubProxyServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+     </servlet>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.proxy</servlet-name>
+        <url-pattern>/epub/proxy</url-pattern>
+     </servlet-mapping>
 
     <listener>
         <listener-class>org.sakaiproject.util.ToolListener</listener-class>
