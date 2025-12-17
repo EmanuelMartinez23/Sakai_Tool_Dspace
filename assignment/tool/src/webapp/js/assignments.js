@@ -87,13 +87,13 @@ ASN.setupAssignNew = function(){
                 e.preventDefault();
                 var url = jq(this).data('url');
                 if (!url) return;
-                // Intentar extraer UUID si es una URL de DSpace para usar el flujo seguro /epub/preview
+                // Intentar extraer UUID si es una URL de DSpace para usar el nuevo lector seguro /epub/read
                 try {
                     var m = String(url).match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
                     if (m && m[1]) {
                         var uuid = m[1];
-                        var preview = 'epub/preview?uuid=' + encodeURIComponent(uuid);
-                        window.open(preview, '_blank');
+                        var readUrl = 'epub/read?uuid=' + encodeURIComponent(uuid);
+                        window.open(readUrl, '_blank');
                         return;
                     }
                 } catch (ex) { /* ignore and fallback */ }

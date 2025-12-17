@@ -99,23 +99,23 @@
         <url-pattern>/epub/proxy</url-pattern>
      </servlet-mapping>
 
-     <!-- EPUB preview UI (Moodle-like) -->
+     <!-- EPUB read UI (lightweight, no epub.js) -->
      <servlet>
-        <servlet-name>sakai.assignment.epub.preview</servlet-name>
-        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubPreviewServlet</servlet-class>
+        <servlet-name>sakai.assignment.epub.read</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubReadServlet</servlet-class>
         <load-on-startup>2</load-on-startup>
      </servlet>
      <servlet-mapping>
-        <servlet-name>sakai.assignment.epub.preview</servlet-name>
-        <url-pattern>/epub/preview</url-pattern>
+        <servlet-name>sakai.assignment.epub.read</servlet-name>
+        <url-pattern>/epub/read</url-pattern>
      </servlet-mapping>
      <!-- Alias without /epub to be resilient to tool-relative links resolved by the portal -->
      <servlet-mapping>
-        <servlet-name>sakai.assignment.epub.preview</servlet-name>
-        <url-pattern>/preview</url-pattern>
+        <servlet-name>sakai.assignment.epub.read</servlet-name>
+        <url-pattern>/read</url-pattern>
      </servlet-mapping>
 
-     <!-- EPUB internal file serving -->
+     <!-- EPUB internal file serving (query-param style) -->
      <servlet>
         <servlet-name>sakai.assignment.epub.serve</servlet-name>
         <servlet-class>org.sakaiproject.assignment.tool.epub.EpubServeServlet</servlet-class>
@@ -131,10 +131,25 @@
         <url-pattern>/serve</url-pattern>
      </servlet-mapping>
 
+     <!-- EPUB path-based book server for relative resource resolution -->
+     <servlet>
+        <servlet-name>sakai.assignment.epub.book</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubBookServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+     </servlet>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.book</servlet-name>
+        <url-pattern>/epub/book/*</url-pattern>
+     </servlet-mapping>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.book</servlet-name>
+        <url-pattern>/book/*</url-pattern>
+     </servlet-mapping>
+
      <!-- Ensure Sakai RequestFilter applies to EPUB servlets -->
      <filter-mapping>
         <filter-name>sakai.request</filter-name>
-        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <servlet-name>sakai.assignment.epub.read</servlet-name>
         <dispatcher>REQUEST</dispatcher>
         <dispatcher>FORWARD</dispatcher>
         <dispatcher>INCLUDE</dispatcher>
@@ -142,6 +157,13 @@
      <filter-mapping>
         <filter-name>sakai.request</filter-name>
         <servlet-name>sakai.assignment.epub.serve</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+     </filter-mapping>
+     <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.assignment.epub.book</servlet-name>
         <dispatcher>REQUEST</dispatcher>
         <dispatcher>FORWARD</dispatcher>
         <dispatcher>INCLUDE</dispatcher>
