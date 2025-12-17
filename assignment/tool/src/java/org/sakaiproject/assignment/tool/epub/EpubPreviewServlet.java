@@ -57,9 +57,14 @@ public class EpubPreviewServlet extends HttpServlet {
         if (nav < 0) nav = 0; if (nav >= count) nav = count - 1;
         String chapter = idx.spine.get(nav);
 
-        // Use tool-relative URLs (no leading slash, no contextPath) so links stay within the tool placement under the Sakai portal
-        String chapterUrl = "epub/serve?uuid=" + url(uuid) + "&file=" + url(chapter);
-        String self = "epub/preview?uuid=" + url(uuid);
+        // Build absolute paths anchored to the current placement directory to defeat any <base href> set by the portal
+        // Example current URI: /portal/site/{siteId}/tool/{placementId}/epub/preview
+        // We derive the directory: /portal/site/{siteId}/tool/{placementId}/epub/
+        String uri = req.getRequestURI();
+        int lastSlash = uri.lastIndexOf('/') + 1; // position after last '/'
+        String baseDir = lastSlash > 0 ? uri.substring(0, lastSlash) : "/"; // always ends with '/'
+        String chapterUrl = baseDir + "serve?uuid=" + url(uuid) + "&file=" + url(chapter);
+        String self = baseDir + "preview?uuid=" + url(uuid);
 
         resp.setCharacterEncoding("UTF-8");
         resp.setContentType("text/html;charset=UTF-8");
@@ -67,7 +72,7 @@ public class EpubPreviewServlet extends HttpServlet {
         out.println("<!DOCTYPE html>");
         out.println("<html lang=\"es\">");
         out.println("<head>");
-        out.println("<meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");
+        out.println("<meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<base href=\"" + escapeHtml(baseDir) + "\">\n");
         out.println("<title>" + escapeHtml(title) + " · Visor EPUB</title>");
         out.println("<style>html,body{height:100%;margin:0;padding:0;overflow:hidden;background:#f8f9fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}#viewer-container{position:fixed;inset:0;display:flex;flex-direction:column;background:#fff}#toolbar{padding:12px 16px;border-bottom:1px solid #dee2e6;display:flex;gap:12px;align-items:center;background:#fff;z-index:2}#iframewrap{position:relative;flex:1}#pageframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff}.btn{padding:6px 12px;border:1px solid #ced4da;background:#fff;border-radius:4px;cursor:pointer}.btn:disabled{opacity:.5;cursor:not-allowed}#status{margin-left:auto;color:#6c757d}#toc{max-width:320px}@media (max-width: 768px){#toc{max-width:200px}}</style>");
         out.println("</head><body>");
