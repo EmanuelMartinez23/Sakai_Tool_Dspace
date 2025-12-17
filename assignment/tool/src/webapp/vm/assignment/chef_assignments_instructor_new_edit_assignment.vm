@@ -583,7 +583,7 @@
                                                                                 #foreach($b in $bss)
                                                                                     #set($name = "$!b.name")
                                                                                     #if($name && $name.toLowerCase().endsWith('.epub') && $b.downloadUrl)
-                                                                                        <a class="btn btn-primary btn-sm" href="/library/epub/epub-viewer.html?src=$formattedText.escapeUrl($!b.downloadUrl)" target="_blank" rel="noopener" title="Previsualizar $!b.name">EPUB</a>
+                                                                                        <a class="btn btn-primary btn-sm" href="epub-viewer.html?src=$formattedText.escapeUrl($!b.downloadUrl)" target="_blank" rel="noopener" title="Previsualizar $!b.name">EPUB</a>
                                                                                     #else
                                                                                         <span class="text-muted">Sin vista previa</span>
                                                                                     #end
