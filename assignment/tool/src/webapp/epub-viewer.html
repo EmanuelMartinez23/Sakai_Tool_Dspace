@@ -55,6 +55,17 @@
       var openSrc = document.getElementById('openSrc');
       if (src) openSrc.href = src; else openSrc.removeAttribute('href');
 
+      // Si es una URL de DSpace (bitstreams/<uuid>/...), redirigir al flujo con UUID que maneja autenticación
+      try {
+        var m = String(src || '').match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
+        if (m && m[1]) {
+          var uuid = m[1];
+          var previewUrl = 'epub/preview?uuid=' + encodeURIComponent(uuid);
+          window.location.replace(previewUrl);
+          return;
+        }
+      } catch (e) { /* continuar flujo normal */ }
+
       if (!window.ePub) {
         document.getElementById('viewer').innerHTML = '<div style="padding:1rem">No se pudo cargar EPUB.js</div>';
         return;

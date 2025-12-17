@@ -136,6 +136,13 @@
         <dispatcher>FORWARD</dispatcher>
         <dispatcher>INCLUDE</dispatcher>
      </filter-mapping>
+     <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.assignment.epub.proxy</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+     </filter-mapping>
  
      <listener>
          <listener-class>org.sakaiproject.util.ToolListener</listener-class>

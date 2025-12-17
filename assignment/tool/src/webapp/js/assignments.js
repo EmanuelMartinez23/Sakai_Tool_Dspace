@@ -87,6 +87,17 @@ ASN.setupAssignNew = function(){
                 e.preventDefault();
                 var url = jq(this).data('url');
                 if (!url) return;
+                // Intentar extraer UUID si es una URL de DSpace para usar el flujo seguro /epub/preview
+                try {
+                    var m = String(url).match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
+                    if (m && m[1]) {
+                        var uuid = m[1];
+                        var preview = 'epub/preview?uuid=' + encodeURIComponent(uuid);
+                        window.open(preview, '_blank');
+                        return;
+                    }
+                } catch (ex) { /* ignore and fallback */ }
+                // Fallback: visor estático con proxy (para orígenes públicos con CORS)
                 var viewer = 'epub-viewer.html?src=' + encodeURIComponent(url);
                 try { window.open(viewer, '_blank'); } catch(err) { /* ignore */ }
             });
