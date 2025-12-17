@@ -3041,6 +3041,19 @@ public class AssignmentAction extends PagedResourceActionII {
         try {
             boolean dspaceEnabled = serverConfigurationService.getBoolean("assignment.dspace.enabled", false);
             log.info("DSpace integration activo: {}", dspaceEnabled);
+
+            // Exponer URL base de la herramienta dentro del portal para construir enlaces correctos
+            try {
+                String portalUrl = serverConfigurationService.getPortalUrl();
+                Placement placement = toolManager.getCurrentPlacement();
+                if (placement != null) {
+                    String toolBaseUrl = portalUrl + "/tool/" + placement.getId();
+                    context.put("toolBaseUrl", toolBaseUrl);
+                }
+            } catch (Exception e) {
+                // no-op: si falla, el template seguirá usando rutas relativas
+            }
+
             if (dspaceEnabled) {
                 String apiBase = serverConfigurationService.getString("dspace.api.base", null);
                 String frontBase = serverConfigurationService.getString("dspace.front.base", null);

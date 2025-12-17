@@ -36,8 +36,8 @@ public class DSpaceClientService {
     private CacheEntry cachedTree;
 
     public DSpaceClientService(String apiBase, String frontBase, String email, String password, long ttlMillis) {
-        this.apiBase = trimSlash(apiBase);
-        this.frontBase = trimSlash(frontBase);
+        this.apiBase = trimSlash(fixScheme(apiBase));
+        this.frontBase = trimSlash(fixScheme(frontBase));
         this.email = email;
         this.password = password;
         this.ttlMillis = ttlMillis <= 0 ? 300_000L : ttlMillis; // default 5 min
@@ -46,6 +46,16 @@ public class DSpaceClientService {
     private static String trimSlash(String s) {
         if (s == null) return null;
         if (s.endsWith("/")) return s.substring(0, s.length()-1);
+        return s;
+    }
+
+    /**
+     * Corrige bases mal configuradas como "http//host" (falta ":")
+     */
+    private static String fixScheme(String s) {
+        if (s == null) return null;
+        if (s.startsWith("http//")) return "http://" + s.substring("http//".length());
+        if (s.startsWith("https//")) return "https://" + s.substring("https//".length());
         return s;
     }
 
