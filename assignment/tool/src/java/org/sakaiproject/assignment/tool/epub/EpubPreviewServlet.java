@@ -57,8 +57,9 @@ public class EpubPreviewServlet extends HttpServlet {
         if (nav < 0) nav = 0; if (nav >= count) nav = count - 1;
         String chapter = idx.spine.get(nav);
 
-        String chapterUrl = req.getContextPath() + "/epub/serve?uuid=" + url(uuid) + "&file=" + url(chapter);
-        String self = req.getContextPath() + "/epub/preview?uuid=" + url(uuid);
+        // Use tool-relative URLs (no leading slash, no contextPath) so links stay within the tool placement under the Sakai portal
+        String chapterUrl = "epub/serve?uuid=" + url(uuid) + "&file=" + url(chapter);
+        String self = "epub/preview?uuid=" + url(uuid);
 
         resp.setCharacterEncoding("UTF-8");
         resp.setContentType("text/html;charset=UTF-8");

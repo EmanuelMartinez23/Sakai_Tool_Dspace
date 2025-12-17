@@ -109,6 +109,11 @@
         <servlet-name>sakai.assignment.epub.preview</servlet-name>
         <url-pattern>/epub/preview</url-pattern>
      </servlet-mapping>
+     <!-- Alias without /epub to be resilient to tool-relative links resolved by the portal -->
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <url-pattern>/preview</url-pattern>
+     </servlet-mapping>
 
      <!-- EPUB internal file serving -->
      <servlet>
@@ -119,6 +124,11 @@
      <servlet-mapping>
         <servlet-name>sakai.assignment.epub.serve</servlet-name>
         <url-pattern>/epub/serve</url-pattern>
+     </servlet-mapping>
+     <!-- Alias without /epub -->
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.serve</servlet-name>
+        <url-pattern>/serve</url-pattern>
      </servlet-mapping>
 
      <!-- Ensure Sakai RequestFilter applies to EPUB servlets -->
