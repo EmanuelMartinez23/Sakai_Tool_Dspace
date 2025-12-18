@@ -146,6 +146,21 @@
         <url-pattern>/book/*</url-pattern>
      </servlet-mapping>
 
+     <!-- EPUB legacy preview endpoint (kept for compatibility) -->
+     <servlet>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubPreviewServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+     </servlet>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <url-pattern>/epub/preview</url-pattern>
+     </servlet-mapping>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
+        <url-pattern>/preview</url-pattern>
+     </servlet-mapping>
+
      <!-- Ensure Sakai RequestFilter applies to EPUB servlets -->
      <filter-mapping>
         <filter-name>sakai.request</filter-name>
@@ -171,6 +186,13 @@
      <filter-mapping>
         <filter-name>sakai.request</filter-name>
         <servlet-name>sakai.assignment.epub.proxy</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+     </filter-mapping>
+     <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.assignment.epub.preview</servlet-name>
         <dispatcher>REQUEST</dispatcher>
         <dispatcher>FORWARD</dispatcher>
         <dispatcher>INCLUDE</dispatcher>
