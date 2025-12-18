@@ -115,6 +115,21 @@
         <url-pattern>/read</url-pattern>
      </servlet-mapping>
 
+     <!-- EPUB CHS-based view UI -->
+     <servlet>
+        <servlet-name>sakai.assignment.epub.view</servlet-name>
+        <servlet-class>org.sakaiproject.assignment.tool.epub.EpubReadChsServlet</servlet-class>
+        <load-on-startup>2</load-on-startup>
+     </servlet>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.view</servlet-name>
+        <url-pattern>/epub/view</url-pattern>
+     </servlet-mapping>
+     <servlet-mapping>
+        <servlet-name>sakai.assignment.epub.view</servlet-name>
+        <url-pattern>/view</url-pattern>
+     </servlet-mapping>
+
      <!-- EPUB internal file serving (query-param style) -->
      <servlet>
         <servlet-name>sakai.assignment.epub.serve</servlet-name>
@@ -165,6 +180,13 @@
      <filter-mapping>
         <filter-name>sakai.request</filter-name>
         <servlet-name>sakai.assignment.epub.read</servlet-name>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>INCLUDE</dispatcher>
+     </filter-mapping>
+     <filter-mapping>
+        <filter-name>sakai.request</filter-name>
+        <servlet-name>sakai.assignment.epub.view</servlet-name>
         <dispatcher>REQUEST</dispatcher>
         <dispatcher>FORWARD</dispatcher>
         <dispatcher>INCLUDE</dispatcher>

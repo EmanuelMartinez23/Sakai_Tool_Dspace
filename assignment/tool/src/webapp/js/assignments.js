@@ -92,8 +92,8 @@ ASN.setupAssignNew = function(){
                     var m = String(url).match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
                     if (m && m[1]) {
                         var uuid = m[1];
-                        var readUrl = 'epub/read?uuid=' + encodeURIComponent(uuid);
-                        window.open(readUrl, '_blank');
+                        var readUrl = 'epub/view?uuid=' + encodeURIComponent(uuid);
+                        try { window.location.href = readUrl; } catch(e) { window.location.assign(readUrl); }
                         return;
                     }
                 } catch (ex) { /* ignore and fallback */ }

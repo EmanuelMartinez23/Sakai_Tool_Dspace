@@ -40,7 +40,7 @@ public class EpubPreviewServlet extends HttpServlet {
         int lastSlash = uri.lastIndexOf('/') + 1;
         String baseDir = lastSlash > 0 ? uri.substring(0, lastSlash) : "/"; // ends with '/'
 
-        String target = baseDir + "read?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
+        String target = baseDir + "view?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
         // 303 See Other avoids POST replays; 302 is fine here since it's a GET
         resp.setStatus(HttpServletResponse.SC_SEE_OTHER);
         resp.setHeader("Location", target);
