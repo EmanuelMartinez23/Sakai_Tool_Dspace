@@ -3,6 +3,7 @@ package org.sakaiproject.assignment.tool.epub;
 import lombok.extern.slf4j.Slf4j;
 import org.sakaiproject.component.cover.ComponentManager;
 import org.sakaiproject.tool.api.SessionManager;
+import org.sakaiproject.tool.api.ToolManager;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;

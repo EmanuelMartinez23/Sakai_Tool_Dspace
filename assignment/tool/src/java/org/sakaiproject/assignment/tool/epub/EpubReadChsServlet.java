@@ -3,6 +3,7 @@ package org.sakaiproject.assignment.tool.epub;
 import lombok.extern.slf4j.Slf4j;
 import org.sakaiproject.component.cover.ComponentManager;
 import org.sakaiproject.tool.api.SessionManager;
+import org.sakaiproject.tool.api.ToolManager;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -37,6 +38,24 @@ public class EpubReadChsServlet extends HttpServlet {
         }
         int nav = 0;
         try { nav = Integer.parseInt(req.getParameter("nav")); } catch (Exception ignore) {}
+
+        // Hardening: if the current URL is missing placement, redirect to absolute /portal/tool/{placement}/epub/view
+        try {
+            ToolManager tm = ComponentManager.get(ToolManager.class);
+            String placementId = (tm != null && tm.getCurrentPlacement() != null) ? tm.getCurrentPlacement().getId() : null;
+            if (placementId != null) {
+                String shouldContain = "/portal/tool/" + placementId + "/epub/";
+                String cur = req.getRequestURI();
+                if (cur == null || !cur.contains(shouldContain)) {
+                    String origin = req.getScheme() + "://" + req.getServerName() + ((req.getServerPort()==80||req.getServerPort()==443)?"":":"+req.getServerPort());
+                    String baseDir = origin + shouldContain;
+                    String target = baseDir + "view?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
+                    resp.setStatus(HttpServletResponse.SC_SEE_OTHER);
+                    resp.setHeader("Location", target);
+                    return;
+                }
+            }
+        } catch (Throwable t) { /* ignore and continue */ }
 
         // Ensure published in CHS
         EpubChsStorage chs = new EpubChsStorage();

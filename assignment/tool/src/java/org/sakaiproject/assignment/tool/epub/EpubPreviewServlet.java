@@ -2,6 +2,8 @@ package org.sakaiproject.assignment.tool.epub;
 
 import lombok.extern.slf4j.Slf4j;
 import org.sakaiproject.tool.api.SessionManager;
+import org.sakaiproject.tool.api.ToolManager;
+import org.sakaiproject.component.api.ServerConfigurationService;
 import org.sakaiproject.component.cover.ComponentManager;
 
 import javax.servlet.ServletException;
@@ -35,13 +37,52 @@ public class EpubPreviewServlet extends HttpServlet {
         int nav = 0;
         try { nav = Integer.parseInt(req.getParameter("nav")); } catch (Exception ignore) {}
 
-        // Build base dir anchored to current placement path
-        String uri = req.getRequestURI();
-        int lastSlash = uri.lastIndexOf('/') + 1;
-        String baseDir = lastSlash > 0 ? uri.substring(0, lastSlash) : "/"; // ends with '/'
+        // Prefer absolute redirect anchored to current placement: /portal/tool/{placementId}/epub/
+        String target;
+        try {
+            String scheme = req.getScheme();
+            String host = req.getServerName();
+            int port = req.getServerPort();
+            String origin = scheme + "://" + host + ((port == 80 || port == 443) ? "" : (":" + port));
 
-        String target = baseDir + "view?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
-        // 303 See Other avoids POST replays; 302 is fine here since it's a GET
+            String placementId = null;
+            try {
+                ToolManager tm = ComponentManager.get(ToolManager.class);
+                if (tm != null && tm.getCurrentPlacement() != null) {
+                    placementId = tm.getCurrentPlacement().getId();
+                }
+            } catch (Throwable ignore) { }
+
+            if (placementId == null) {
+                String uri = req.getRequestURI();
+                // Try to extract placement from /portal/site/{site}/tool/{placement}/...
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("/portal/(?:site/[^/]+/)?tool/([^/]+)/")
+                        .matcher(uri);
+                if (m.find()) {
+                    placementId = m.group(1);
+                }
+            }
+
+            if (placementId != null) {
+                String baseDir = origin + "/portal/tool/" + placementId + "/epub/"; // ends with /
+                target = baseDir + "view?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
+            } else {
+                // Fallback: relative to current path
+                String uri = req.getRequestURI();
+                int lastSlash = uri.lastIndexOf('/') + 1;
+                String baseDir = lastSlash > 0 ? uri.substring(0, lastSlash) : "/";
+                target = baseDir + "view?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
+            }
+        } catch (Exception ex) {
+            // Last resort: relative redirect
+            String uri = req.getRequestURI();
+            int lastSlash = uri.lastIndexOf('/') + 1;
+            String baseDir = lastSlash > 0 ? uri.substring(0, lastSlash) : "/";
+            target = baseDir + "view?uuid=" + url(uuid) + (nav > 0 ? ("&nav=" + nav) : "");
+        }
+
+        // 303 See Other avoids POST replays
         resp.setStatus(HttpServletResponse.SC_SEE_OTHER);
         resp.setHeader("Location", target);
     }

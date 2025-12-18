@@ -583,7 +583,7 @@
                                                                                 #foreach($b in $bss)
                                                                                     #set($name = "$!b.name")
                                                                                     #if($name && $name.toLowerCase().endsWith('.epub') && $b.uuid)
-                                                                                        <a class="btn btn-primary btn-sm preview-epub" href="epub/view?uuid=$!b.uuid" data-uuid="$!b.uuid" title="Previsualizar $!b.name" target="_blank">EPUB</a>
+                                                                                        <a class="btn btn-primary btn-sm preview-epub" href="/portal/tool/$!placement.id/epub/view?uuid=$!b.uuid" data-uuid="$!b.uuid" title="Previsualizar $!b.name" target="_blank">EPUB</a>
                                                                                     #else
                                                                                         <span class="text-muted">Sin vista previa</span>
                                                                                     #end
