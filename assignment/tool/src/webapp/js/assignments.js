@@ -85,21 +85,51 @@ ASN.setupAssignNew = function(){
         if (jq) {
             jq(document).off('click.asnPreviewEpub').on('click.asnPreviewEpub', '.preview-epub', function(e){
                 e.preventDefault();
+                var uuidAttr = jq(this).data('uuid');
                 var url = jq(this).data('url');
-                if (!url) return;
-                // Intentar extraer UUID si es una URL de DSpace para usar el nuevo lector seguro /epub/read
-                try {
-                    var m = String(url).match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
-                    if (m && m[1]) {
-                        var uuid = m[1];
-                        var readUrl = 'epub/view?uuid=' + encodeURIComponent(uuid);
-                        try { window.location.href = readUrl; } catch(e) { window.location.assign(readUrl); }
-                        return;
+
+                function computePortalBase(){
+                    var href = window.location.href;
+                    try {
+                        var a = document.createElement('a');
+                        a.href = href;
+                        var path = a.pathname;
+                        // Prefer /portal/tool/{placement}/
+                        var mTool = path.match(/\/portal\/tool\/([^\/]+)\//);
+                        if (mTool && mTool[1]) return a.protocol + '//' + a.host + '/portal/tool/' + mTool[1] + '/';
+                        // Or /portal/site/{site}/tool/{placement}/
+                        var mSiteTool = path.match(/\/portal\/site\/[^\/]+\/tool\/([^\/]+)\//);
+                        if (mSiteTool && mSiteTool[1]) return a.protocol + '//' + a.host + '/portal/tool/' + mSiteTool[1] + '/';
+                        // Fallback: keep current directory
+                        return a.protocol + '//' + a.host + path.replace(/[^\/]*$/, '');
+                    } catch(ex) {
+                        return '';
                     }
-                } catch (ex) { /* ignore and fallback */ }
-                // Fallback: visor estático con proxy (para orígenes públicos con CORS)
-                var viewer = 'epub-viewer.html?src=' + encodeURIComponent(url);
-                try { window.open(viewer, '_blank'); } catch(err) { /* ignore */ }
+                }
+
+                var base = computePortalBase();
+
+                if (uuidAttr) {
+                    var viewUrl = base + 'epub/view?uuid=' + encodeURIComponent(uuidAttr);
+                    try { window.open(viewUrl, '_blank'); } catch(err) { window.location.href = viewUrl; }
+                    return;
+                }
+
+                if (url) {
+                    // Intentar extraer UUID si es una URL de DSpace
+                    try {
+                        var m = String(url).match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
+                        if (m && m[1]) {
+                            var uuid = m[1];
+                            var readUrl = base + 'epub/view?uuid=' + encodeURIComponent(uuid);
+                            try { window.open(readUrl, '_blank'); } catch(e) { window.location.href = readUrl; }
+                            return;
+                        }
+                    } catch (ex) { /* ignore and fallback */ }
+                    // Fallback: visor estático con proxy (para orígenes públicos con CORS)
+                    var viewer = base + 'epub-viewer.html?src=' + encodeURIComponent(url);
+                    try { window.open(viewer, '_blank'); } catch(err) { window.location.href = viewer; }
+                }
             });
         }
     } catch(ignore) {}
