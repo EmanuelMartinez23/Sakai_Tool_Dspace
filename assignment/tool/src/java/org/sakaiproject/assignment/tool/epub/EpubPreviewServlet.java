@@ -63,6 +63,16 @@ public class EpubPreviewServlet extends HttpServlet {
                     placementId = m.group(1);
                 }
             }
+            // Try Referer header if still unknown
+            if (placementId == null) {
+                String ref = req.getHeader("Referer");
+                if (ref != null) {
+                    java.util.regex.Matcher mr = java.util.regex.Pattern
+                            .compile("/portal/(?:site/[^/]+/)?tool/([^/]+)(?:/|\\?)")
+                            .matcher(ref);
+                    if (mr.find()) placementId = mr.group(1);
+                }
+            }
 
             if (placementId != null) {
                 String baseDir = origin + "/portal/tool/" + placementId + "/epub/"; // ends with /

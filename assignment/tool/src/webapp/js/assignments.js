@@ -89,28 +89,58 @@ ASN.setupAssignNew = function(){
                 var url = jq(this).data('url');
 
                 function computePortalBase(){
-                    var href = window.location.href;
+                    function parsePlacement(path){
+                        if (!path) return null;
+                        var mTool = path.match(/\/portal\/tool\/([^\/?#]+)(?:\/?|\?|$)/);
+                        if (mTool && mTool[1]) return mTool[1];
+                        var mSiteTool = path.match(/\/portal\/site\/[^\/]+\/tool\/([^\/?#]+)(?:\/?|\?|$)/);
+                        if (mSiteTool && mSiteTool[1]) return mSiteTool[1];
+                        return null;
+                    }
                     try {
+                        var topLoc = window.top && window.top.location ? window.top.location : null;
+                        var parentLoc = (!topLoc || topLoc === window.location) && window.parent ? window.parent.location : null;
+                        var candidates = [];
+                        if (topLoc) candidates.push(topLoc);
+                        if (parentLoc) candidates.push(parentLoc);
+                        candidates.push(window.location);
+                        for (var i=0;i<candidates.length;i++) {
+                            var loc = candidates[i];
+                            var path = loc.pathname || '';
+                            var placement = parsePlacement(path);
+                            if (placement) {
+                                return loc.protocol + '//' + loc.host + '/portal/tool/' + placement + '/';
+                            }
+                        }
+                        // Fallback: keep current directory of current window
                         var a = document.createElement('a');
-                        a.href = href;
-                        var path = a.pathname;
-                        // Prefer /portal/tool/{placement}/
-                        var mTool = path.match(/\/portal\/tool\/([^\/]+)\//);
-                        if (mTool && mTool[1]) return a.protocol + '//' + a.host + '/portal/tool/' + mTool[1] + '/';
-                        // Or /portal/site/{site}/tool/{placement}/
-                        var mSiteTool = path.match(/\/portal\/site\/[^\/]+\/tool\/([^\/]+)\//);
-                        if (mSiteTool && mSiteTool[1]) return a.protocol + '//' + a.host + '/portal/tool/' + mSiteTool[1] + '/';
-                        // Fallback: keep current directory
-                        return a.protocol + '//' + a.host + path.replace(/[^\/]*$/, '');
+                        a.href = window.location.href;
+                        return a.protocol + '//' + a.host + (a.pathname||'').replace(/[^\/]*$/, '');
                     } catch(ex) {
-                        return '';
+                        try {
+                            var a2 = document.createElement('a');
+                            a2.href = window.location.href;
+                            return a2.protocol + '//' + a2.host + (a2.pathname||'').replace(/[^\/]*$/, '');
+                        } catch(e2) {
+                            return '';
+                        }
                     }
                 }
 
                 var base = computePortalBase();
+                // Extraer placementId explícitamente para pasarlo como query y evitar perderlo en la nueva pestaña
+                function extractPlacement(str){
+                    if (!str) return '';
+                    var m1 = String(str).match(/\/portal\/tool\/([^\/?#]+)(?:[\/?#]|$)/);
+                    if (m1 && m1[1]) return m1[1];
+                    var m2 = String(str).match(/\/portal\/site\/[^\/]+\/tool\/([^\/?#]+)(?:[\/?#]|$)/);
+                    if (m2 && m2[1]) return m2[1];
+                    return '';
+                }
+                var placementId = extractPlacement(window.location.pathname) || extractPlacement(document.referrer);
 
                 if (uuidAttr) {
-                    var viewUrl = base + 'epub/view?uuid=' + encodeURIComponent(uuidAttr);
+                    var viewUrl = base + 'epub/view?uuid=' + encodeURIComponent(uuidAttr) + (placementId?('&placement='+encodeURIComponent(placementId)):'');
                     try { window.open(viewUrl, '_blank'); } catch(err) { window.location.href = viewUrl; }
                     return;
                 }
@@ -121,13 +151,13 @@ ASN.setupAssignNew = function(){
                         var m = String(url).match(/\/bitstreams\/([0-9a-fA-F-]{32,})\//);
                         if (m && m[1]) {
                             var uuid = m[1];
-                            var readUrl = base + 'epub/view?uuid=' + encodeURIComponent(uuid);
+                            var readUrl = base + 'epub/view?uuid=' + encodeURIComponent(uuid) + (placementId?('&placement='+encodeURIComponent(placementId)):'');
                             try { window.open(readUrl, '_blank'); } catch(e) { window.location.href = readUrl; }
                             return;
                         }
                     } catch (ex) { /* ignore and fallback */ }
                     // Fallback: visor estático con proxy (para orígenes públicos con CORS)
-                    var viewer = base + 'epub-viewer.html?src=' + encodeURIComponent(url);
+                    var viewer = base + 'epub-viewer.html?src=' + encodeURIComponent(url) + (placementId?('&placement='+encodeURIComponent(placementId)):'');
                     try { window.open(viewer, '_blank'); } catch(err) { window.location.href = viewer; }
                 }
             });
