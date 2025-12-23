@@ -402,6 +402,9 @@
         return;
       }
 
+      var source = 'http://192.168.1.27:4000/bitstreams/332d156e-2621-4665-ab21-a4ddf6ba63fa/download';
+      var proxyUrl = window.location.href.replace(/(#.*)?$/, '').replace(/\/$/, '') + '/epub/proxy?url=' + encodeURIComponent(source);
+
       var html = '<!doctype html>' +
         '<html lang="es">' +
         '<head>' +
@@ -437,7 +440,7 @@
         '</main>' +
         '<script>' +
         '(function(){' +
-        '  var url = ' + JSON.stringify('http://192.168.1.27:4000/bitstreams/332d156e-2621-4665-ab21-a4ddf6ba63fa/download') + ';' +
+        '  var url = ' + JSON.stringify(proxyUrl) + ';' +
         '  var statusEl = document.getElementById("status");' +
         '  var viewerEl = document.getElementById("viewer");' +
         '  function setStatus(msg){ statusEl.textContent = msg || ""; }' +
