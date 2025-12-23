@@ -455,14 +455,39 @@
       // Inicialización del visor una vez cargado epub.js
       function initViewer(){
         setStatus('Descargando…');
+        var respHeaders = {};
         w.fetch(proxyUrl, { credentials: 'same-origin' })
-          .then(function(res){ if(!res.ok) throw new Error('HTTP '+res.status); return res.arrayBuffer(); })
+          .then(function(res){
+            respHeaders.type = res.headers.get('content-type');
+            respHeaders.length = res.headers.get('content-length');
+            if(!res.ok) throw new Error('HTTP '+res.status);
+            return res.arrayBuffer();
+          })
           .then(function(buf){
+            // Validar cabecera ZIP ("PK\x03\x04")
+            var bytes = new Uint8Array(buf);
+            var isZip = bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4B; // 'P''K'
+            if (!isZip) {
+              setStatus('Error');
+              var snippet = '';
+              try { snippet = new TextDecoder('utf-8').decode(bytes.slice(0, 200)); } catch(e) {}
+              var details = 'El recurso recibido no parece ser un EPUB (ZIP).\n' +
+                'Content-Type: ' + (respHeaders.type || 'desconocido') + '\n' +
+                'Content-Length: ' + (respHeaders.length || 'desconocido') + '\n' +
+                'Primeros bytes: ' + Array.prototype.slice.call(bytes,0,8).map(function(b){return b.toString(16).padStart(2,'0');}).join(' ') + '\n' +
+                (snippet ? ('Snippet:\n' + snippet) : '');
+              (w.console&&w.console.error)&&w.console.error('[EPUB] Respuesta no ZIP desde proxy', details);
+              viewer.innerHTML = '<div style="padding:20px;color:#a00;white-space:pre-wrap;"><strong>No es un EPUB válido.</strong>\n' + details.replace(/</g,'&lt;') + '</div>';
+              var a = d.createElement('a'); a.href = proxyUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Abrir respuesta del proxy';
+              viewer.appendChild(a);
+              return; // abortar
+            }
+
             setStatus('Abriendo…');
-            var blob = new Blob([buf], { type: 'application/epub+zip' });
-            var objectUrl = (w.URL || w.webkitURL).createObjectURL(blob);
             try {
-              var book = w.ePub(objectUrl);
+              // Abrir directamente el ArrayBuffer como binario para evitar peticiones a /META-INF/container.xml
+              var book = w.ePub();
+              book.open(buf, 'binary');
               var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
               rendition.display();
               prevBtn.addEventListener('click', function(){ rendition.prev(); });
