@@ -391,8 +391,61 @@
 ## Include other javascript specific to this page
 #javascript("/sakai-assignment-tool/js/instructorNewEdit.js")
 
+<script type="text/javascript">
+  // Abre una ventana de previsualización EPUB (en blanco por ahora)
+  function openEpubPreview() {
+    try {
+      const w = window.open('', 'epubPreviewWindow', 'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no');
+      if (!w) {
+        alert('Por favor, permita las ventanas emergentes para ver la previsualización.');
+        return;
+      }
+      const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Previsualizador EPUB (En blanco)</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f6f6f6; color: #222; }
+    header { background: #0f6cbf; color: #fff; padding: 12px 16px; }
+    header h1 { margin: 0; font-size: 18px; }
+    main { padding: 24px; }
+    .placeholder { border: 2px dashed #bbb; background: #fff; border-radius: 8px; padding: 24px; text-align: center; color: #666; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Previsualizador EPUB</h1>
+  </header>
+  <main>
+    <div class="placeholder">
+      <p>Este espacio está reservado para la previsualización de libros EPUB.</p>
+      <p>Próximamente aquí se renderizará el contenido del libro.</p>
+    </div>
+  </main>
+</body>
+</html>`;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+    } catch (e) {
+      console && console.error && console.error('Error abriendo previsualizador EPUB:', e);
+    }
+  }
+</script>
+
 <div class="portletBody container-fluid">
-	#navBarOnClick( $allowAddAssignment $allowGradeSubmission $allowAddAssignment $allowRecoverAssignment $allowAllGroups $assignmentscheck $allowUpdateSite $enableViewOption $view "newAssignmentForm" "new" )
+ #navBarOnClick( $allowAddAssignment $allowGradeSubmission $allowAddAssignment $allowRecoverAssignment $allowAllGroups $assignmentscheck $allowUpdateSite $enableViewOption $view "newAssignmentForm" "new" )
+
+    <!-- Botón de previsualización EPUB (temporal, en blanco) -->
+    <div class="d-flex justify-content-end mb-3">
+      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview()">
+        <span class="me-1" aria-hidden="true"><i class="si si-eye"></i></span>
+        Previsualizar EPUB
+      </button>
+    </div>
 
 	<div class="page-header">
 		<h1>
