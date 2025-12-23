@@ -530,19 +530,39 @@
           });
       }
 
-      // Cargar epub.js y JSZip dinámicamente en la ventana hija
+      // Cargar epub.js y JSZip dinámicamente en la ventana hija (intenta primero webjars locales)
       var remaining = 2;
       function onLibLoaded(){ remaining--; if (remaining === 0) initViewer(); }
-      var sc = d.createElement('script');
-      sc.src = 'https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js';
-      sc.onload = onLibLoaded;
-      sc.onerror = function(){ setStatus('Error'); log.textContent = 'No se pudo cargar epub.js'; };
-      head.appendChild(sc);
-      var scZip = d.createElement('script');
-      scZip.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
-      scZip.onload = onLibLoaded;
-      scZip.onerror = function(){ (w.console&&w.console.warn)&&w.console.warn('No se pudo cargar JSZip. El botón Demo no funcionará.'); };
-      head.appendChild(scZip);
+      function injectScript(src, onload, onerror){ var s=d.createElement('script'); s.src=src; s.onload=onload; s.onerror=onerror; head.appendChild(s); }
+      // JSZip: intentar varias rutas locales de webjars, luego CDN
+      function loadJSZipLocalThenCdn(done){
+        var tried = [];
+        var candidates = [
+          '/library/webjars/jszip/3.10.1/dist/jszip.min.js',
+          '/library/webjars/jszip/3.10.1/jszip.min.js'
+        ];
+        function tryNext(){
+          var src = candidates.shift();
+          if (!src) {
+            (w.console&&w.console.warn)&&w.console.warn('No se pudo cargar JSZip desde /library/webjars, probando CDN');
+            injectScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', done, function(){
+              (w.console&&w.console.error)&&w.console.error('No se pudo cargar JSZip desde CDN');
+              done();
+            });
+            return;
+          }
+          injectScript(src, done, function(){
+            tried.push(src);
+            tryNext();
+          });
+        }
+        tryNext();
+      }
+      loadJSZipLocalThenCdn(onLibLoaded);
+      // epub.js desde CDN (si tienes ruta local, la cambio a local en siguiente iteración)
+      injectScript('https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js', onLibLoaded, function(){
+        setStatus('Error'); log.textContent = 'No se pudo cargar epub.js';
+      });
 
       // Botón Demo: construye un EPUB mínimo en memoria y lo abre
       demoBtn.addEventListener('click', function(){
