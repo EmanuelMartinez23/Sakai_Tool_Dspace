@@ -30,11 +30,13 @@ public class EpubProxyServlet extends HttpServlet {
         }
         String sourceUrl = URLDecoder.decode(urlParam, StandardCharsets.UTF_8.name());
         try {
+            log.info("[EPUB] Proxy request: {}", sourceUrl);
             File f = cacheService.getOrFetch(sourceUrl);
             if (!f.exists()) {
                 resp.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
                 return;
             }
+            resp.setHeader("X-EPUB-PROXY", "hit");
             resp.setContentType("application/epub+zip");
             resp.setHeader("Content-Disposition", "inline; filename=book.epub");
             resp.setHeader("Cache-Control", "private, max-age=300");
@@ -47,7 +49,9 @@ public class EpubProxyServlet extends HttpServlet {
                 while ((r = in.read(buf)) != -1) {
                     out.write(buf, 0, r);
                 }
+                out.flush();
             }
+            log.info("[EPUB] Proxy served: {} bytes", f.length());
         } catch (IOException ex) {
             log.warn("[EPUB] Proxy error for {}: {}", sourceUrl, ex.toString());
             if (ex.getMessage() != null && ex.getMessage().contains("Host not allowed")) {
