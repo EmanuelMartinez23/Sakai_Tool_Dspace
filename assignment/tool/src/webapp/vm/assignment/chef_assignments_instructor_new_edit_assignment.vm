@@ -415,6 +415,7 @@
       ];
       var __proxyTried = [];
       function pickProxyUrl(){ return proxyCandidates.shift(); }
+      var proxyUrl = pickProxyUrl();
 
       var d = w.document;
       // Título y elementos base
@@ -450,7 +451,8 @@
       var controls = d.createElement('div'); controls.id = 'controls';
       var prevBtn = d.createElement('button'); prevBtn.id = 'prevBtn'; prevBtn.title = 'Página anterior'; prevBtn.appendChild(d.createTextNode('\u2B05')); // ⬅
       var nextBtn = d.createElement('button'); nextBtn.id = 'nextBtn'; nextBtn.title = 'Página siguiente'; nextBtn.appendChild(d.createTextNode('\u27A1')); // ➡
-      controls.appendChild(prevBtn); controls.appendChild(nextBtn); header.appendChild(controls);
+      var demoBtn = d.createElement('button'); demoBtn.id = 'demoBtn'; demoBtn.title = 'Cargar EPUB de prueba'; demoBtn.textContent = 'Demo';
+      controls.appendChild(prevBtn); controls.appendChild(nextBtn); controls.appendChild(demoBtn); header.appendChild(controls);
 
       var main = d.createElement('main');
       var viewer = d.createElement('div'); viewer.id = 'viewer';
@@ -528,12 +530,79 @@
           });
       }
 
-      // Cargar epub.js dinámicamente en la ventana hija
+      // Cargar epub.js y JSZip dinámicamente en la ventana hija
+      var remaining = 2;
+      function onLibLoaded(){ remaining--; if (remaining === 0) initViewer(); }
       var sc = d.createElement('script');
       sc.src = 'https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js';
-      sc.onload = initViewer;
+      sc.onload = onLibLoaded;
       sc.onerror = function(){ setStatus('Error'); log.textContent = 'No se pudo cargar epub.js'; };
       head.appendChild(sc);
+      var scZip = d.createElement('script');
+      scZip.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      scZip.onload = onLibLoaded;
+      scZip.onerror = function(){ (w.console&&w.console.warn)&&w.console.warn('No se pudo cargar JSZip. El botón Demo no funcionará.'); };
+      head.appendChild(scZip);
+
+      // Botón Demo: construye un EPUB mínimo en memoria y lo abre
+      demoBtn.addEventListener('click', function(){
+        if (!w.JSZip) { log.textContent = 'JSZip no está disponible'; return; }
+        setStatus('Generando demo…');
+        try {
+          var zip = new w.JSZip();
+          // EPUB exige que el archivo "mimetype" sea el primero y sin compresión
+          zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
+          zip.file('META-INF/container.xml', (
+            '<?xml version="1.0"?>\n' +
+            '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n' +
+            '  <rootfiles>\n' +
+            '    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>\n' +
+            '  </rootfiles>\n' +
+            '</container>\n'
+          ));
+          zip.file('OEBPS/title.xhtml', (
+            '<?xml version="1.0" encoding="utf-8"?>\n' +
+            '<!DOCTYPE html>\n' +
+            '<html xmlns="http://www.w3.org/1999/xhtml">\n' +
+            '<head><title>Demo EPUB</title><meta charset="utf-8"/></head>\n' +
+            '<body><h1>EPUB de prueba</h1><p>Este es un EPUB mínimo generado en memoria para probar el visor.</p></body>\n' +
+            '</html>\n'
+          ));
+          zip.file('OEBPS/content.opf', (
+            '<?xml version="1.0" encoding="utf-8"?>\n' +
+            '<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">\n' +
+            '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n' +
+            '    <dc:title>Demo EPUB</dc:title>\n' +
+            '    <dc:language>es</dc:language>\n' +
+            '    <dc:identifier id="BookId">urn:uuid:demo-epub</dc:identifier>\n' +
+            '  </metadata>\n' +
+            '  <manifest>\n' +
+            '    <item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>\n' +
+            '  </manifest>\n' +
+            '  <spine toc="ncx">\n' +
+            '    <itemref idref="title"/>\n' +
+            '  </spine>\n' +
+            '</package>\n'
+          ));
+          zip.generateAsync({ type: 'arraybuffer' }).then(function(buf){
+            setStatus('Abriendo demo…');
+            try {
+              var book = w.ePub();
+              book.open(buf, 'binary');
+              var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
+              rendition.display();
+            } catch(e) {
+              setStatus('Error');
+              (w.console&&w.console.error)&&w.console.error('Error abriendo demo EPUB', e);
+              log.textContent = 'Error abriendo demo EPUB';
+            }
+          });
+        } catch (e) {
+          setStatus('Error');
+          (w.console&&w.console.error)&&w.console.error('Error generando demo EPUB', e);
+          log.textContent = 'Error generando demo EPUB';
+        }
+      });
 
       w.focus();
     } catch (e) {
