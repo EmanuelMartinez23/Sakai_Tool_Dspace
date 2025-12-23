@@ -392,46 +392,89 @@
 #javascript("/sakai-assignment-tool/js/instructorNewEdit.js")
 
 <script type="text/javascript">
-  // Abre una ventana de previsualización EPUB (en blanco por ahora)
+  // Abre una ventana de previsualización EPUB y renderiza el libro desde DSpace
   function openEpubPreview() {
+    var EPUB_URL = 'http://192.168.1.27:4000/bitstreams/332d156e-2621-4665-ab21-a4ddf6ba63fa/download';
     try {
-      const w = window.open('', 'epubPreviewWindow', 'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no');
+      var w = window.open('', 'epubPreviewWindow', 'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no');
       if (!w) {
         alert('Por favor, permita las ventanas emergentes para ver la previsualización.');
         return;
       }
-      const html = `<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Previsualizador EPUB (En blanco)</title>
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f6f6f6; color: #222; }
-    header { background: #0f6cbf; color: #fff; padding: 12px 16px; }
-    header h1 { margin: 0; font-size: 18px; }
-    main { padding: 24px; }
-    .placeholder { border: 2px dashed #bbb; background: #fff; border-radius: 8px; padding: 24px; text-align: center; color: #666; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>Previsualizador EPUB</h1>
-  </header>
-  <main>
-    <div class="placeholder">
-      <p>Este espacio está reservado para la previsualización de libros EPUB.</p>
-      <p>Próximamente aquí se renderizará el contenido del libro.</p>
-    </div>
-  </main>
-</body>
-</html>`;
+
+      var html = '<!doctype html>' +
+        '<html lang="es">' +
+        '<head>' +
+        '<meta charset="utf-8">' +
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+        '<title>Previsualizador EPUB</title>' +
+        '<style>' +
+        '* { box-sizing: border-box; }' +
+        'html, body { height: 100%; }' +
+        'body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background: #f6f6f6; color: #222; display: flex; flex-direction: column; }' +
+        'header { background: #0f6cbf; color: #fff; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }' +
+        'header h1 { margin: 0; font-size: 16px; font-weight: 600; }' +
+        '#controls { margin-left: auto; display: flex; gap: 6px; }' +
+        'button { background: #fff; color: #222; border: 1px solid #d0d0d0; border-radius: 6px; padding: 6px 10px; cursor: pointer; }' +
+        'button:hover { background: #f0f0f0; }' +
+        '#status { font-size: 12px; opacity: 0.9; margin-left: 8px; }' +
+        'main { flex: 1; display: flex; min-height: 0; }' +
+        '#viewer { flex: 1; background: #fff; margin: 10px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; display: flex; }' +
+        '</style>' +
+        '<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"><' + '/script>' +
+        '</head>' +
+        '<body>' +
+        '<header>' +
+        '<h1>Previsualizador EPUB</h1>' +
+        '<div id="status"></div>' +
+        '<div id="controls">' +
+        '<button id="prevBtn" title="Página anterior">⟵</button>' +
+        '<button id="nextBtn" title="Página siguiente">⟶</button>' +
+        '</div>' +
+        '</header>' +
+        '<main>' +
+        '<div id="viewer"></div>' +
+        '</main>' +
+        '<script>' +
+        '(function(){' +
+        '  var url = ' + JSON.stringify('http://192.168.1.27:4000/bitstreams/332d156e-2621-4665-ab21-a4ddf6ba63fa/download') + ';' +
+        '  var statusEl = document.getElementById("status");' +
+        '  var viewerEl = document.getElementById("viewer");' +
+        '  function setStatus(msg){ statusEl.textContent = msg || ""; }' +
+        '  try {' +
+        '    var book = ePub(url);' +
+        '    var rendition = book.renderTo("viewer", { width: "100%", height: "100%" });' +
+        '    rendition.display();' +
+        '    document.getElementById("prevBtn").addEventListener("click", function(){ rendition.prev(); });' +
+        '    document.getElementById("nextBtn").addEventListener("click", function(){ rendition.next(); });' +
+        '    document.addEventListener("keydown", function(e){ if (e.key === "ArrowLeft") rendition.prev(); if (e.key === "ArrowRight") rendition.next(); });' +
+        '    book.ready.then(function(){ return book.locations.generate(1600); }).then(function(){' +
+        '      rendition.on("relocated", function(loc){' +
+        '        try {' +
+        '          var current = book.locations.percentageFromCfi(loc.start.cfi);' +
+        '          var pct = Math.max(0, Math.min(100, Math.round((current || 0) * 100)));' +
+        '          setStatus(pct + "%");' +
+        '        } catch (e) { setStatus(""); }' +
+        '      });' +
+        '    }).catch(function(err){ console.error("Error generando locations", err); });' +
+        '    book.loaded && book.loaded.metadata && book.loaded.metadata.then(function(meta){ if (meta && meta.title) document.title = meta.title + " — Previsualizador EPUB"; }).catch(function(){});' +
+        '  } catch (err) {' +
+        '    console.error("No se pudo inicializar el visor EPUB:", err);' +
+        '    viewerEl.innerHTML = "<div style=\\"padding:20px;color:#a00;\\">No se pudo inicializar el previsualizador EPUB.</div>";' +
+        '    setStatus("Error");' +
+        '  }' +
+        '  setStatus("Cargando…");' +
+        '})();' +
+        '<' + '/script>' +
+        '</body>' +
+        '</html>';
+
       w.document.open();
       w.document.write(html);
       w.document.close();
       w.focus();
     } catch (e) {
-      console && console.error && console.error('Error abriendo previsualizador EPUB:', e);
+      if (window.console && console.error) console.error('Error abriendo previsualizador EPUB:', e);
     }
   }
 </script>
