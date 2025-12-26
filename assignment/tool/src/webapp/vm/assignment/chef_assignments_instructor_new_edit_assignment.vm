@@ -465,26 +465,66 @@
           .then(function(res){
             respHeaders.type = res.headers.get('content-type');
             respHeaders.length = res.headers.get('content-length');
-            if(!res.ok) throw new Error('HTTP '+res.status);
-            return res.arrayBuffer();
+            respHeaders.disposition = res.headers.get('content-disposition');
+            respHeaders.proxyHit = res.headers.get('x-epub-proxy');
+            respHeaders.status = res.status;
+            respHeaders.statusText = res.statusText;
+            respHeaders.finalUrl = res.url;
+            // No arrojamos error aquí; leemos siempre el cuerpo para poder mostrar diagnóstico completo
+            return res.arrayBuffer().then(function(buf){ return { buf: buf, ok: res.ok }; });
           })
-          .then(function(buf){
+          .then(function(result){
+            var buf = result.buf;
+            var ok = result.ok;
+            // Intentar extraer nombre de archivo (Content-Disposition o URL)
+            function deriveFilename(){
+              var cd = respHeaders.disposition || '';
+              var m = cd.match(/filename\*=UTF-8''([^;\s]+)/i);
+              if (m && m[1]) { try { return decodeURIComponent(m[1]); } catch(e) { return m[1]; } }
+              m = cd.match(/filename="?([^";]+)"?/i);
+              if (m && m[1]) return m[1];
+              try {
+                var u = new URL(respHeaders.finalUrl || proxyUrl);
+                var last = u.pathname.split('/').filter(Boolean).pop();
+                if (last) return last;
+              } catch(e) {}
+              try {
+                var su = new URL(source);
+                var slast = su.pathname.split('/').filter(Boolean).pop();
+                if (slast) return slast;
+              } catch(e) {}
+              return 'archivo.epub';
+            }
+            var filename = deriveFilename();
+
             // Validar cabecera ZIP ("PK\x03\x04")
             var bytes = new Uint8Array(buf);
             var isZip = bytes.length >= 4 && bytes[0] === 0x50 && bytes[1] === 0x4B; // 'P''K'
-            if (!isZip) {
+
+            if (!ok || !isZip) {
               setStatus('Error');
               var snippet = '';
               try { snippet = new TextDecoder('utf-8').decode(bytes.slice(0, 200)); } catch(e) {}
-              var details = 'El recurso recibido no parece ser un EPUB (ZIP).\n' +
+              var details = 'Archivo origen (DSpace): ' + source + '\n' +
+                'Descargando desde (proxy): ' + proxyUrl + '\n' +
+                'URL final de respuesta: ' + (respHeaders.finalUrl || '(desconocida)') + '\n' +
+                'HTTP: ' + (respHeaders.status || '?') + ' ' + (respHeaders.statusText || '') + '\n' +
+                'X-EPUB-PROXY: ' + (respHeaders.proxyHit || '(sin cabecera)') + '\n' +
                 'Content-Type: ' + (respHeaders.type || 'desconocido') + '\n' +
                 'Content-Length: ' + (respHeaders.length || 'desconocido') + '\n' +
+                'Content-Disposition: ' + (respHeaders.disposition || '—') + '\n' +
+                'Nombre de archivo estimado: ' + filename + '\n' +
                 'Primeros bytes: ' + Array.prototype.slice.call(bytes,0,8).map(function(b){return b.toString(16).padStart(2,'0');}).join(' ') + '\n' +
                 (snippet ? ('Snippet:\n' + snippet) : '');
-              (w.console&&w.console.error)&&w.console.error('[EPUB] Respuesta no ZIP desde proxy', details);
-              viewer.innerHTML = '<div style="padding:20px;color:#a00;white-space:pre-wrap;"><strong>No es un EPUB válido.</strong>\n' + details.replace(/</g,'&lt;') + '</div>';
-              var a = d.createElement('a'); a.href = proxyUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Abrir respuesta del proxy';
-              viewer.appendChild(a);
+              (w.console&&w.console.error)&&w.console.error('[EPUB] No se pudo abrir/descargar como EPUB', details);
+              viewer.innerHTML = '<div style="padding:20px;color:#a00;white-space:pre-wrap;"><strong>No se pudo descargar/abrir el EPUB.</strong>\n\n' + details.replace(/</g,'&lt;') + '</div>';
+              var links = d.createElement('div');
+              links.style.padding = '10px 20px';
+              var a1 = d.createElement('a'); a1.href = proxyUrl; a1.target = '_blank'; a1.rel = 'noopener'; a1.textContent = 'Abrir respuesta del proxy';
+              var sep = d.createTextNode(' \u00A0 ');
+              var a2 = d.createElement('a'); a2.href = source; a2.target = '_blank'; a2.rel = 'noopener'; a2.textContent = 'Abrir URL de origen (DSpace)';
+              links.appendChild(a1); links.appendChild(sep); links.appendChild(a2);
+              viewer.appendChild(links);
               return; // abortar
             }
 
@@ -515,11 +555,18 @@
             }
           })
           .catch(function(err){
+            // Este catch captura fallos de red/JS antes de leer el cuerpo
             (w.console&&w.console.error)&&w.console.error('Fallo al descargar el EPUB desde el proxy', err);
             setStatus('Error');
+            var html = '<div style="padding:20px;white-space:pre-wrap;">' +
+              'No se pudo descargar el EPUB desde el servidor.\n' +
+              'Archivo origen (DSpace): ' + source + '\n' +
+              'Descargando desde (proxy): ' + proxyUrl + '</div>';
+            viewer.innerHTML = html;
+            var linkWrap = d.createElement('div'); linkWrap.style.padding = '10px 20px';
             var a = d.createElement('a'); a.href = proxyUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Descargar archivo';
-            viewer.innerHTML = '<div style="padding:20px;">No se pudo descargar el EPUB desde el servidor. </div>';
-            viewer.appendChild(a);
+            linkWrap.appendChild(a);
+            viewer.appendChild(linkWrap);
           });
       }
 
