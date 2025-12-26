@@ -57,34 +57,64 @@ public class EpubCacheService {
         return allowedHosts.contains(host);
     }
 
+    /** Return cached file object (may not exist) for a source URL. */
+    public File getCachedFile(String sourceUrl) throws IOException {
+        String key = sha256(sourceUrl);
+        return new File(cacheDir, key + ".epub");
+    }
+
+    /** Invalidate cached file for a source URL. */
+    public void invalidate(String sourceUrl) throws IOException {
+        File f = getCachedFile(sourceUrl);
+        if (f.exists() && !f.delete()) {
+            log.debug("[EPUB] Could not delete cached file: {}", f.getAbsolutePath());
+        }
+    }
+
     public File getOrFetch(String sourceUrl) throws IOException {
+        return getOrFetch(sourceUrl, false);
+    }
+
+    public File getOrFetch(String sourceUrl, boolean forceRefresh) throws IOException {
         URL url = new URL(sourceUrl);
         if (!isAllowed(url)) {
             throw new IOException("Host not allowed: " + url.getHost());
         }
         String key = sha256(sourceUrl);
         File file = new File(cacheDir, key + ".epub");
-        if (file.exists() && !isExpired(file)) {
+        if (!forceRefresh && file.exists() && !isExpired(file) && isZipFile(file)) {
             return file;
         }
         // fetch and write atomically
         File tmp = new File(cacheDir, key + ".part");
         download(url, tmp);
         if (tmp.length() <= 0) {
+            //noinspection ResultOfMethodCallIgnored
             tmp.delete();
             throw new IOException("Downloaded file is empty");
         }
         if (tmp.length() > maxBytes) {
+            //noinspection ResultOfMethodCallIgnored
             tmp.delete();
             throw new IOException("Downloaded file exceeds max size: " + tmp.length());
         }
-        if (file.exists()) file.delete();
+        // Validate ZIP magic before promoting to cache
+        if (!isZipFile(tmp)) {
+            long len = tmp.length();
+            byte[] head = readHead(tmp, 8);
+            //noinspection ResultOfMethodCallIgnored
+            tmp.delete();
+            throw new IOException("Upstream did not return EPUB (ZIP). firstBytes=" + bytesToHex(head) + ", length=" + len);
+        }
+        if (file.exists()) //noinspection ResultOfMethodCallIgnored
+            file.delete();
         if (!tmp.renameTo(file)) {
             // fallback copy
             try (java.io.FileInputStream in = new java.io.FileInputStream(tmp);
                  java.io.FileOutputStream out = new java.io.FileOutputStream(file)) {
                 IOUtils.copy(in, out);
             }
+            //noinspection ResultOfMethodCallIgnored
             tmp.delete();
         }
         touch(file);
@@ -98,6 +128,8 @@ public class EpubCacheService {
         con.setReadTimeout(30000);
         con.setInstanceFollowRedirects(true);
         con.setRequestProperty("User-Agent", "Sakai-Assignment-EPUB-Proxy");
+        con.setRequestProperty("Accept", "application/epub+zip,application/octet-stream;q=0.9,*/*;q=0.1");
+        con.setRequestProperty("Accept-Encoding", "identity");
         int code = con.getResponseCode();
         if (code >= 400) {
             throw new IOException("HTTP " + code + " from " + url);
@@ -105,6 +137,11 @@ public class EpubCacheService {
         long contentLen = con.getContentLengthLong();
         if (contentLen > 0 && contentLen > maxBytes) {
             throw new IOException("Remote content too large: " + contentLen);
+        }
+        // Enforce whitelist after redirects
+        URL finalUrl = con.getURL();
+        if (!isAllowed(finalUrl)) {
+            throw new IOException("Redirected host not allowed: " + finalUrl.getHost());
         }
         try (InputStream is = con.getInputStream(); FileOutputStream fos = new FileOutputStream(out)) {
             long copied = IOUtils.copyLarge(is, fos, 0, maxBytes + 1);
@@ -151,5 +188,29 @@ public class EpubCacheService {
             // fallback
             return Integer.toHexString(s.hashCode());
         }
+    }
+
+    private static boolean isZipFile(File f) {
+        byte[] head = readHead(f, 4);
+        return head != null && head.length >= 2 && head[0] == 0x50 && head[1] == 0x4B; // 'P''K'
+    }
+
+    private static byte[] readHead(File f, int n) {
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(f)) {
+            byte[] buf = new byte[Math.max(0, n)];
+            int r = fis.read(buf);
+            if (r <= 0) return new byte[0];
+            if (r < buf.length) return Arrays.copyOf(buf, r);
+            return buf;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String bytesToHex(byte[] a) {
+        if (a == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (byte b : a) sb.append(String.format("%02x", b));
+        return sb.toString();
     }
 }

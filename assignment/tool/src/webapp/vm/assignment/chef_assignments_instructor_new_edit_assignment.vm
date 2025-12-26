@@ -407,6 +407,8 @@
       var sp = u.searchParams;
       sp.set('eventSubmit_doEpub_proxy', '1');
       sp.set('url', source);
+      // Fuerza re-descarga saltando caché del proxy en esta sesión de prueba
+      sp.set('nocache', '1');
       u.search = sp.toString();
       var proxyUrl = u.toString();
 
@@ -467,6 +469,7 @@
             respHeaders.length = res.headers.get('content-length');
             respHeaders.disposition = res.headers.get('content-disposition');
             respHeaders.proxyHit = res.headers.get('x-epub-proxy');
+            respHeaders.diag = res.headers.get('x-epub-proxy-diag');
             respHeaders.status = res.status;
             respHeaders.statusText = res.statusText;
             respHeaders.finalUrl = res.url;

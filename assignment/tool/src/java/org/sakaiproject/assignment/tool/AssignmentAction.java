@@ -15298,10 +15298,10 @@ public class AssignmentAction extends PagedResourceActionII {
                 String urlParam = data.getParameters().getString("url");
                 if (urlParam != null) {
                     String sourceUrl = java.net.URLEncoder.encode(urlParam, java.nio.charset.StandardCharsets.UTF_8.name());
-                    String contextPath = data.getRequest().getContextPath();
-                    data.getRequest().getRequestDispatcher("/epub/proxy?url=" + sourceUrl).forward(data.getRequest(), (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
-                        .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
-                        .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE));
+                    data.getRequest().getRequestDispatcher("/epub/proxy?url=" + sourceUrl)
+                        .forward(data.getRequest(), (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
+                            .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
+                            .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE));
                 }
             } catch (Exception ignore) {}
             return;
@@ -15318,19 +15318,27 @@ public class AssignmentAction extends PagedResourceActionII {
             } catch (Exception e) {
                 sourceUrl = urlParam; // best effort
             }
+            String nocacheParam = data.getParameters().getString("nocache");
+            boolean forceRefresh = "1".equalsIgnoreCase(nocacheParam) || "true".equalsIgnoreCase(nocacheParam);
 
             org.sakaiproject.assignment.tool.epub.EpubCacheService cache = new org.sakaiproject.assignment.tool.epub.EpubCacheService();
             java.io.File f;
             try {
-                f = cache.getOrFetch(sourceUrl);
+                f = cache.getOrFetch(sourceUrl, forceRefresh);
             } catch (java.io.IOException ex) {
                 String msg = ex.getMessage() == null ? "Proxy failure" : ex.getMessage();
+                // Add diagnostic header
+                try { resp.setHeader("X-EPUB-PROXY-DIAG", msg); } catch (Exception ignore) {}
                 if (msg.contains("Host not allowed")) {
                     resp.sendError(javax.servlet.http.HttpServletResponse.SC_FORBIDDEN, msg);
                 } else if (msg.startsWith("HTTP ")) {
                     resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_GATEWAY, msg);
                 } else if (msg.contains("exceeds max size")) {
                     resp.sendError(javax.servlet.http.HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, msg);
+                } else if (msg.contains("Redirected host not allowed")) {
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_FORBIDDEN, msg);
+                } else if (msg.contains("Upstream did not return EPUB")) {
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_GATEWAY, msg);
                 } else {
                     resp.sendError(javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR, msg);
                 }
@@ -15340,6 +15348,18 @@ public class AssignmentAction extends PagedResourceActionII {
             if (f == null || !f.exists()) {
                 resp.sendError(javax.servlet.http.HttpServletResponse.SC_NOT_FOUND, "File not found");
                 return;
+            }
+
+            // Safety check: validate ZIP magic before sending
+            byte[] head = new byte[4];
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(f)) {
+                int r = fis.read(head);
+                if (r < 2 || head[0] != 0x50 || head[1] != 0x4B) {
+                    String diag = "not-zip firstBytes=" + bytesToHex(head);
+                    resp.setHeader("X-EPUB-PROXY-DIAG", diag);
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_GATEWAY, "Cached file is not EPUB (ZIP)");
+                    return;
+                }
             }
 
             // Derive filename from source URL path
@@ -15360,6 +15380,7 @@ public class AssignmentAction extends PagedResourceActionII {
 
             resp.setHeader("X-EPUB-PROXY", "action");
             resp.setHeader("X-EPUB-SOURCE", sourceUrl);
+            resp.setHeader("X-EPUB-PROXY-DIAG", "ok; size=" + f.length());
             resp.setContentType("application/epub+zip");
             resp.setHeader("Content-Disposition", "inline; filename=" + filename);
             resp.setHeader("Cache-Control", "private, max-age=300");
@@ -15380,6 +15401,14 @@ public class AssignmentAction extends PagedResourceActionII {
                 resp.sendError(javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Proxy failure");
             } catch (Exception ignore) {}
         }
+    }
+
+    // Helper to hex-encode small byte arrays for diagnostics
+    private static String bytesToHex(byte[] a) {
+        if (a == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (byte b : a) sb.append(String.format("%02x", b));
+        return sb.toString();
     }
 
     /**
