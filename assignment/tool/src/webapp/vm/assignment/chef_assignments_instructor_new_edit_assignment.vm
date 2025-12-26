@@ -402,13 +402,13 @@
       }
 
       var source = 'http://192.168.1.27:4000/bitstreams/332d156e-2621-4665-ab21-a4ddf6ba63fa/download';
-      // Construir URL del proxy usando directtool para asegurar entrada al servlet
-      var path = window.location.pathname;
-      var m = path.match(/\/tool\/([^\/]+)/); // placementId
-      var placementId = m ? m[1] : null;
-      var proxyUrl = placementId
-        ? (window.location.origin + '/directtool/' + placementId + '/epub/proxy?url=' + encodeURIComponent(source))
-        : (window.location.origin + path.replace(/\/$/, '') + '/epub/proxy?url=' + encodeURIComponent(source));
+      // Construir URL del action del tool (AssignmentAction) usando eventSubmit_doEpub_proxy
+      var u = new URL(window.location.href);
+      var sp = u.searchParams;
+      sp.set('eventSubmit_doEpub_proxy', '1');
+      sp.set('url', source);
+      u.search = sp.toString();
+      var proxyUrl = u.toString();
 
       var d = w.document;
       // Título y elementos base

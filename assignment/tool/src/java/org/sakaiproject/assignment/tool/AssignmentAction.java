@@ -15285,6 +15285,104 @@ public class AssignmentAction extends PagedResourceActionII {
     }
 
     /**
+     * Proxy EPUB via AssignmentAction to avoid portal routing issues.
+     * Accepts GET/POST with eventSubmit_doEpub_proxy=1 and url=<encoded>
+     */
+    public void doEpub_proxy(RunData data) {
+        javax.servlet.http.HttpServletResponse resp = (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
+                .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
+                .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE);
+        if (resp == null) {
+            // As a fallback, try to redirect to the servlet proxy if response is unavailable
+            try {
+                String urlParam = data.getParameters().getString("url");
+                if (urlParam != null) {
+                    String sourceUrl = java.net.URLEncoder.encode(urlParam, java.nio.charset.StandardCharsets.UTF_8.name());
+                    String contextPath = data.getRequest().getContextPath();
+                    data.getRequest().getRequestDispatcher("/epub/proxy?url=" + sourceUrl).forward(data.getRequest(), (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
+                        .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
+                        .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE));
+                }
+            } catch (Exception ignore) {}
+            return;
+        }
+        try {
+            String urlParam = data.getParameters().getString("url");
+            if (urlParam == null || urlParam.trim().isEmpty()) {
+                resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Missing 'url' parameter");
+                return;
+            }
+            String sourceUrl;
+            try {
+                sourceUrl = java.net.URLDecoder.decode(urlParam, java.nio.charset.StandardCharsets.UTF_8.name());
+            } catch (Exception e) {
+                sourceUrl = urlParam; // best effort
+            }
+
+            org.sakaiproject.assignment.tool.epub.EpubCacheService cache = new org.sakaiproject.assignment.tool.epub.EpubCacheService();
+            java.io.File f;
+            try {
+                f = cache.getOrFetch(sourceUrl);
+            } catch (java.io.IOException ex) {
+                String msg = ex.getMessage() == null ? "Proxy failure" : ex.getMessage();
+                if (msg.contains("Host not allowed")) {
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_FORBIDDEN, msg);
+                } else if (msg.startsWith("HTTP ")) {
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_GATEWAY, msg);
+                } else if (msg.contains("exceeds max size")) {
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, msg);
+                } else {
+                    resp.sendError(javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR, msg);
+                }
+                return;
+            }
+
+            if (f == null || !f.exists()) {
+                resp.sendError(javax.servlet.http.HttpServletResponse.SC_NOT_FOUND, "File not found");
+                return;
+            }
+
+            // Derive filename from source URL path
+            String filename = "book.epub";
+            try {
+                java.net.URL su = new java.net.URL(sourceUrl);
+                String last = su.getPath();
+                if (last != null) {
+                    int slash = last.lastIndexOf('/');
+                    if (slash >= 0 && slash + 1 < last.length()) {
+                        filename = last.substring(slash + 1);
+                        if (!filename.toLowerCase().endsWith(".epub")) {
+                            filename = "book.epub";
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+
+            resp.setHeader("X-EPUB-PROXY", "action");
+            resp.setHeader("X-EPUB-SOURCE", sourceUrl);
+            resp.setContentType("application/epub+zip");
+            resp.setHeader("Content-Disposition", "inline; filename=" + filename);
+            resp.setHeader("Cache-Control", "private, max-age=300");
+            resp.setDateHeader("Last-Modified", f.lastModified());
+            resp.setContentLengthLong(f.length());
+
+            try (java.io.InputStream in = new java.io.BufferedInputStream(new java.io.FileInputStream(f));
+                 java.io.OutputStream out = new java.io.BufferedOutputStream(resp.getOutputStream())) {
+                byte[] buf = new byte[8192];
+                int r;
+                while ((r = in.read(buf)) != -1) {
+                    out.write(buf, 0, r);
+                }
+                out.flush();
+            }
+        } catch (java.io.IOException ioe) {
+            try {
+                resp.sendError(javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Proxy failure");
+            } catch (Exception ignore) {}
+        }
+    }
+
+    /**
      * This security advisor is used when making an assignment submission so that attachments can be added.
      *
      * @return The security advisor.
