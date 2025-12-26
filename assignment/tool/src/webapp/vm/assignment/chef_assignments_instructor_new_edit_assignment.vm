@@ -402,20 +402,13 @@
       }
 
       var source = 'http://192.168.1.27:4000/bitstreams/332d156e-2621-4665-ab21-a4ddf6ba63fa/download';
-      // Construir candidatos de URL del proxy bajo el contexto del tool (/portal/tool/<placementId>)
+      // Construir URL del proxy usando directtool para asegurar entrada al servlet
       var path = window.location.pathname;
-      // Soporta /portal/tool/<placement> y /portal/site/<siteId>/tool/<placement>
-      var m = path.match(/^(.*\/portal\/(?:site\/[^\/]+\/)?tool\/[^\/]+)/);
-      var toolBase = m ? m[1] : path.replace(/\/$/, '');
-      var proxyQuery = '/epub/proxy?url=' + encodeURIComponent(source);
-      var proxyCandidates = [
-        window.location.origin + toolBase + proxyQuery,
-        toolBase + proxyQuery,
-        proxyQuery, // relativo
-      ];
-      var __proxyTried = [];
-      function pickProxyUrl(){ return proxyCandidates.shift(); }
-      var proxyUrl = pickProxyUrl();
+      var m = path.match(/\/tool\/([^\/]+)/); // placementId
+      var placementId = m ? m[1] : null;
+      var proxyUrl = placementId
+        ? (window.location.origin + '/directtool/' + placementId + '/epub/proxy?url=' + encodeURIComponent(source))
+        : (window.location.origin + path.replace(/\/$/, '') + '/epub/proxy?url=' + encodeURIComponent(source));
 
       var d = w.document;
       // Título y elementos base
