@@ -15289,13 +15289,10 @@ public class AssignmentAction extends PagedResourceActionII {
      * Accepts GET/POST with eventSubmit_doEpub_proxy=1 and url=<encoded>
      */
     public void doEpub_proxy(RunData data) {
-        // Obtain the raw HttpServletResponse from RunData (more reliable than RequestFilter ThreadLocal)
-        javax.servlet.http.HttpServletResponse resp = null;
-        try {
-            resp = (javax.servlet.http.HttpServletResponse) ((JetspeedRunData) data).getResponse();
-        } catch (Throwable t) {
-            try { resp = (javax.servlet.http.HttpServletResponse) data.getResponse(); } catch (Throwable ignore) {}
-        }
+        // Obtain the HttpServletResponse via RequestFilter ThreadLocal (compatible with this portal)
+        javax.servlet.http.HttpServletResponse resp = (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
+                .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
+                .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE);
         if (resp == null) {
             // As a last resort, bail out with a generic 500 — the viewer will report failure
             return;
