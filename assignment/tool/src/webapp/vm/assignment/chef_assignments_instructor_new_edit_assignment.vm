@@ -611,63 +611,29 @@
         setStatus('Error'); log.textContent = 'No se pudo cargar epub.js';
       });
 
-      // Botón Demo: construye un EPUB mínimo en memoria y lo abre
+      // Botón Demo (servidor): carga el demo desde el endpoint del servidor, funcionando incluso sin internet
       demoBtn.addEventListener('click', function(){
-        if (!w.JSZip) { log.textContent = 'JSZip no está disponible'; return; }
-        setStatus('Generando demo…');
         try {
-          var zip = new w.JSZip();
-          // EPUB exige que el archivo "mimetype" sea el primero y sin compresión
-          zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' });
-          zip.file('META-INF/container.xml', (
-            '<?xml version="1.0"?>\n' +
-            '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n' +
-            '  <rootfiles>\n' +
-            '    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>\n' +
-            '  </rootfiles>\n' +
-            '</container>\n'
-          ));
-          zip.file('OEBPS/title.xhtml', (
-            '<?xml version="1.0" encoding="utf-8"?>\n' +
-            '<!DOCTYPE html>\n' +
-            '<html xmlns="http://www.w3.org/1999/xhtml">\n' +
-            '<head><title>Demo EPUB</title><meta charset="utf-8"/></head>\n' +
-            '<body><h1>EPUB de prueba</h1><p>Este es un EPUB mínimo generado en memoria para probar el visor.</p></body>\n' +
-            '</html>\n'
-          ));
-          zip.file('OEBPS/content.opf', (
-            '<?xml version="1.0" encoding="utf-8"?>\n' +
-            '<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">\n' +
-            '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n' +
-            '    <dc:title>Demo EPUB</dc:title>\n' +
-            '    <dc:language>es</dc:language>\n' +
-            '    <dc:identifier id="BookId">urn:uuid:demo-epub</dc:identifier>\n' +
-            '  </metadata>\n' +
-            '  <manifest>\n' +
-            '    <item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>\n' +
-            '  </manifest>\n' +
-            '  <spine toc="ncx">\n' +
-            '    <itemref idref="title"/>\n' +
-            '  </spine>\n' +
-            '</package>\n'
-          ));
-          zip.generateAsync({ type: 'arraybuffer' }).then(function(buf){
-            setStatus('Abriendo demo…');
-            try {
-              var book = w.ePub();
-              book.open(buf, 'binary');
-              var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
-              rendition.display();
-            } catch(e) {
-              setStatus('Error');
-              (w.console&&w.console.error)&&w.console.error('Error abriendo demo EPUB', e);
-              log.textContent = 'Error abriendo demo EPUB';
-            }
-          });
+          function getPlacementId(pathname){
+            var m = pathname && pathname.match(/\/portal\/(?:site\/[^\/]+\/)?tool\/([^\/]+)/);
+            return m ? m[1] : null;
+          }
+          var loc = window.location;
+          var origin = loc.origin || (loc.protocol + '//' + loc.host);
+          var placementId = getPlacementId(loc.pathname) || '';
+          if (!placementId && document.referrer) {
+            var a = document.createElement('a'); a.href = document.referrer; placementId = getPlacementId(a.pathname) || '';
+          }
+          if (!placementId) { setStatus('Error'); log.textContent = 'No se pudo determinar el placementId para demo'; return; }
+          proxyUrl = origin + '/portal/tool/' + placementId + '/epub/demo';
+          setStatus('Cargando demo del servidor…');
+          // Vaciar visor y reiniciar
+          var v = document.getElementById('viewer'); if (v) v.innerHTML = '';
+          initViewer();
         } catch (e) {
           setStatus('Error');
-          (w.console&&w.console.error)&&w.console.error('Error generando demo EPUB', e);
-          log.textContent = 'Error generando demo EPUB';
+          (w.console&&w.console.error)&&w.console.error('Error abriendo demo del servidor', e);
+          log.textContent = 'Error abriendo demo del servidor';
         }
       });
 
