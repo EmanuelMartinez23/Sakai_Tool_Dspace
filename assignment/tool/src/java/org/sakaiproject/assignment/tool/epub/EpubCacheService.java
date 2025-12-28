@@ -36,6 +36,10 @@ public class EpubCacheService {
     private final String dspaceFrontBase; // e.g. http://host:4000
     private final String dspaceEmail;
     private final String dspacePassword;
+    private final boolean dspaceForceApi; // if true, always use API path for front downloads
+
+    // Demo fallback (optional)
+    private final String demoUrl; // e.g. https://s3.amazonaws.com/epubjs/books/moby-dick.epub
 
     // Diagnostics for the last operation (per-instance)
     private boolean lastFromCache = false;
@@ -70,10 +74,16 @@ public class EpubCacheService {
         this.dspacePassword = scs != null ? scs.getString("dspace.auth.password") : null;
         try { if (dspaceApiBase != null) set.add(new URL(dspaceApiBase).getHost().toLowerCase()); } catch (Exception ignore) {}
         try { if (dspaceFrontBase != null) set.add(new URL(dspaceFrontBase).getHost().toLowerCase()); } catch (Exception ignore) {}
+        this.dspaceForceApi = scs != null && scs.getBoolean("assignment.epub.dspace.forceApi", false);
+        this.demoUrl = scs != null ? scs.getString("assignment.epub.demo.url") : null;
+        try { if (demoUrl != null) set.add(new URL(demoUrl).getHost().toLowerCase()); } catch (Exception ignore) {}
         this.allowedHosts = set;
-        log.info("[EPUB] Cache dir: {}, ttlSec: {}, maxBytes: {}, allowedHosts: {}", cacheDir.getAbsolutePath(), ttlSec, maxBytes, allowedHosts);
+        log.info("[EPUB] Cache dir: {}, ttlSec: {}, maxBytes: {}, forceApi: {}, allowedHosts: {}", cacheDir.getAbsolutePath(), ttlSec, maxBytes, dspaceForceApi, allowedHosts);
         if (dspaceApiBase != null || dspaceFrontBase != null) {
             log.info("[EPUB] DSpace configured apiBase={} frontBase={} emailPresent={} ", dspaceApiBase, dspaceFrontBase, (dspaceEmail != null && !dspaceEmail.isEmpty()));
+        }
+        if (demoUrl != null && !demoUrl.isEmpty()) {
+            log.info("[EPUB] Demo fallback configured: {}", demoUrl);
         }
     }
 
@@ -103,7 +113,12 @@ public class EpubCacheService {
     public File getOrFetch(String sourceUrl, boolean forceRefresh) throws IOException {
         URL url = new URL(sourceUrl);
         if (!isAllowed(url)) {
-            throw new IOException("Host not allowed: " + url.getHost());
+            if (demoUrl != null && !demoUrl.isEmpty()) {
+                log.warn("[EPUB] Host not allowed: {} — falling back to demo URL", url.getHost());
+                url = new URL(demoUrl);
+            } else {
+                throw new IOException("Host not allowed: " + url.getHost());
+            }
         }
         String key = sha256(sourceUrl);
         File file = new File(cacheDir, key + ".epub");
@@ -119,7 +134,21 @@ public class EpubCacheService {
         }
         // fetch and write atomically
         File tmp = new File(cacheDir, key + ".part");
-        download(url, tmp);
+        boolean usedDemo = false;
+        try {
+            download(url, tmp);
+        } catch (IOException ex) {
+            // If a demo URL is configured and we aren't already using it, try it as a fallback
+            if (demoUrl != null && !demoUrl.isEmpty() && !sameHost(url, demoUrl)) {
+                log.warn("[EPUB] Download failed from {} ({}). Falling back to demo URL.", url, ex.toString());
+                URL durl = new URL(demoUrl);
+                downloadPlain(durl, tmp);
+                usedDemo = true;
+                lastFinalUrl = durl.toString();
+            } else {
+                throw ex;
+            }
+        }
         if (tmp.length() <= 0) {
             //noinspection ResultOfMethodCallIgnored
             tmp.delete();
@@ -156,10 +185,17 @@ public class EpubCacheService {
     }
 
     private void download(URL url, File out) throws IOException {
-        // If configured for DSpace and this is a front download URL, use authenticated DSpace API fetch
-        if (dspaceApiBase != null && dspaceFrontBase != null && isDSpaceFrontDownload(url)) {
-            downloadFromDSpace(url, out);
-            return;
+        // If configured for DSpace, use API when appropriate
+        if (dspaceApiBase != null && dspaceFrontBase != null) {
+            if (dspaceForceApi && isDSpaceFrontHost(url)) {
+                downloadFromDSpace(url, out);
+                return;
+            }
+            // Auto-detect front pattern
+            if (isDSpaceFrontDownload(url)) {
+                downloadFromDSpace(url, out);
+                return;
+            }
         }
         // Otherwise plain download
         downloadPlain(url, out);
@@ -211,6 +247,27 @@ public class EpubCacheService {
             if (!"download".equals(seg[3])) return false;
             String uuid = seg[2];
             return uuid != null && uuid.length() >= 32; // loose check
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isDSpaceFrontHost(URL url) {
+        try {
+            if (dspaceFrontBase == null) return false;
+            URL fb = new URL(dspaceFrontBase);
+            return fb.getHost().equalsIgnoreCase(url.getHost());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean sameHost(URL u, String otherUrl) {
+        try {
+            URL o = new URL(otherUrl);
+            String h1 = u.getHost() == null ? "" : u.getHost().toLowerCase();
+            String h2 = o.getHost() == null ? "" : o.getHost().toLowerCase();
+            return h1.equals(h2);
         } catch (Exception e) {
             return false;
         }
