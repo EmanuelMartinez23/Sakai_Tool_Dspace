@@ -472,7 +472,11 @@
             respHeaders.diag = res.headers.get('x-epub-proxy-diag');
             respHeaders.status = res.status;
             respHeaders.statusText = res.statusText;
-            respHeaders.finalUrl = res.url;
+            respHeaders.finalUrl = res.headers.get('x-epub-finalurl') || res.url;
+            respHeaders.cached = res.headers.get('x-epub-cached');
+            respHeaders.upstreamStatus = res.headers.get('x-epub-upstream-status');
+            respHeaders.upstreamType = res.headers.get('x-epub-upstream-type');
+            respHeaders.headHex = res.headers.get('x-epub-headhex');
             // No arrojamos error aquí; leemos siempre el cuerpo para poder mostrar diagnóstico completo
             return res.arrayBuffer().then(function(buf){ return { buf: buf, ok: res.ok }; });
           })

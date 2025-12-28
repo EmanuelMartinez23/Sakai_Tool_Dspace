@@ -15289,26 +15289,23 @@ public class AssignmentAction extends PagedResourceActionII {
      * Accepts GET/POST with eventSubmit_doEpub_proxy=1 and url=<encoded>
      */
     public void doEpub_proxy(RunData data) {
-        javax.servlet.http.HttpServletResponse resp = (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
-                .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
-                .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE);
+        // Obtain the raw HttpServletResponse from RunData (more reliable than RequestFilter ThreadLocal)
+        javax.servlet.http.HttpServletResponse resp = null;
+        try {
+            resp = (javax.servlet.http.HttpServletResponse) ((JetspeedRunData) data).getResponse();
+        } catch (Throwable t) {
+            try { resp = (javax.servlet.http.HttpServletResponse) data.getResponse(); } catch (Throwable ignore) {}
+        }
         if (resp == null) {
-            // As a fallback, try to redirect to the servlet proxy if response is unavailable
-            try {
-                String urlParam = data.getParameters().getString("url");
-                if (urlParam != null) {
-                    String sourceUrl = java.net.URLEncoder.encode(urlParam, java.nio.charset.StandardCharsets.UTF_8.name());
-                    data.getRequest().getRequestDispatcher("/epub/proxy?url=" + sourceUrl)
-                        .forward(data.getRequest(), (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
-                            .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
-                            .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE));
-                }
-            } catch (Exception ignore) {}
+            // As a last resort, bail out with a generic 500 — the viewer will report failure
             return;
         }
+        // Identify responses coming from this proxy even in error cases
+        try { resp.setHeader("X-EPUB-PROXY", "action"); } catch (Throwable ignore) {}
         try {
             String urlParam = data.getParameters().getString("url");
             if (urlParam == null || urlParam.trim().isEmpty()) {
+                try { resp.setHeader("X-EPUB-PROXY-DIAG", "missing-url-param"); } catch (Throwable ignore) {}
                 resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_REQUEST, "Missing 'url' parameter");
                 return;
             }
@@ -15327,8 +15324,17 @@ public class AssignmentAction extends PagedResourceActionII {
                 f = cache.getOrFetch(sourceUrl, forceRefresh);
             } catch (java.io.IOException ex) {
                 String msg = ex.getMessage() == null ? "Proxy failure" : ex.getMessage();
-                // Add diagnostic header
+                // Add diagnostic headers so the UI can show a helpful message
                 try { resp.setHeader("X-EPUB-PROXY-DIAG", msg); } catch (Exception ignore) {}
+                try {
+                    String finalUrl = cache.getLastFinalUrl();
+                    if (finalUrl != null) resp.setHeader("X-EPUB-FINALURL", finalUrl);
+                    resp.setHeader("X-EPUB-UPSTREAM-STATUS", String.valueOf(cache.getLastUpstreamStatus()));
+                    String ust = cache.getLastUpstreamContentType();
+                    if (ust != null) resp.setHeader("X-EPUB-UPSTREAM-TYPE", ust);
+                    String headHex = cache.getLastHeadHex();
+                    if (headHex != null) resp.setHeader("X-EPUB-HEADHEX", headHex);
+                } catch (Throwable ignore) {}
                 if (msg.contains("Host not allowed")) {
                     resp.sendError(javax.servlet.http.HttpServletResponse.SC_FORBIDDEN, msg);
                 } else if (msg.startsWith("HTTP ")) {
@@ -15346,6 +15352,7 @@ public class AssignmentAction extends PagedResourceActionII {
             }
 
             if (f == null || !f.exists()) {
+                try { resp.setHeader("X-EPUB-PROXY-DIAG", "cache-file-missing"); } catch (Throwable ignore) {}
                 resp.sendError(javax.servlet.http.HttpServletResponse.SC_NOT_FOUND, "File not found");
                 return;
             }
@@ -15378,8 +15385,18 @@ public class AssignmentAction extends PagedResourceActionII {
                 }
             } catch (Exception ignore) {}
 
-            resp.setHeader("X-EPUB-PROXY", "action");
             resp.setHeader("X-EPUB-SOURCE", sourceUrl);
+            // Diagnostics from cache service (success path)
+            try {
+                String finalUrl = cache.getLastFinalUrl();
+                resp.setHeader("X-EPUB-FINALURL", finalUrl == null ? "" : finalUrl);
+                resp.setHeader("X-EPUB-CACHED", String.valueOf(cache.isLastFromCache()));
+                resp.setHeader("X-EPUB-UPSTREAM-STATUS", String.valueOf(cache.getLastUpstreamStatus()));
+                String ust = cache.getLastUpstreamContentType();
+                if (ust != null) resp.setHeader("X-EPUB-UPSTREAM-TYPE", ust);
+                String headHex = cache.getLastHeadHex();
+                if (headHex != null) resp.setHeader("X-EPUB-HEADHEX", headHex);
+            } catch (Throwable ignore) {}
             resp.setHeader("X-EPUB-PROXY-DIAG", "ok; size=" + f.length());
             resp.setContentType("application/epub+zip");
             resp.setHeader("Content-Disposition", "inline; filename=" + filename);
@@ -15397,6 +15414,9 @@ public class AssignmentAction extends PagedResourceActionII {
                 out.flush();
             }
         } catch (java.io.IOException ioe) {
+            try {
+                resp.setHeader("X-EPUB-PROXY-DIAG", "ioe: " + ioe.getMessage());
+            } catch (Throwable ignore) {}
             try {
                 resp.sendError(javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Proxy failure");
             } catch (Exception ignore) {}

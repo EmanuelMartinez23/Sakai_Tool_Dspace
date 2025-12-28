@@ -37,6 +37,13 @@ public class EpubCacheService {
     private final String dspaceEmail;
     private final String dspacePassword;
 
+    // Diagnostics for the last operation (per-instance)
+    private boolean lastFromCache = false;
+    private String lastFinalUrl = null;
+    private int lastUpstreamStatus = -1;
+    private String lastUpstreamContentType = null;
+    private String lastHeadHex = null;
+
     public EpubCacheService() {
         ServerConfigurationService scs = ComponentManager.get(ServerConfigurationService.class);
         String baseDir = scs != null ? scs.getString("assignment.epub.cache.dir", null) : null;
@@ -100,7 +107,14 @@ public class EpubCacheService {
         }
         String key = sha256(sourceUrl);
         File file = new File(cacheDir, key + ".epub");
+        // reset diagnostics
+        lastFromCache = false;
+        lastFinalUrl = null;
+        lastUpstreamStatus = -1;
+        lastUpstreamContentType = null;
+        lastHeadHex = null;
         if (!forceRefresh && file.exists() && !isExpired(file) && isZipFile(file)) {
+            lastFromCache = true;
             return file;
         }
         // fetch and write atomically
@@ -117,12 +131,13 @@ public class EpubCacheService {
             throw new IOException("Downloaded file exceeds max size: " + tmp.length());
         }
         // Validate ZIP magic before promoting to cache
+        byte[] head = readHead(tmp, 8);
+        lastHeadHex = bytesToHex(head);
         if (!isZipFile(tmp)) {
             long len = tmp.length();
-            byte[] head = readHead(tmp, 8);
             //noinspection ResultOfMethodCallIgnored
             tmp.delete();
-            throw new IOException("Upstream did not return EPUB (ZIP). firstBytes=" + bytesToHex(head) + ", length=" + len);
+            throw new IOException("Upstream did not return EPUB (ZIP). firstBytes=" + lastHeadHex + ", length=" + len + (lastUpstreamContentType != null ? ", ctype=" + lastUpstreamContentType : ""));
         }
         if (file.exists()) //noinspection ResultOfMethodCallIgnored
             file.delete();
@@ -159,6 +174,8 @@ public class EpubCacheService {
         con.setRequestProperty("Accept", "application/epub+zip,application/octet-stream;q=0.9,*/*;q=0.1");
         con.setRequestProperty("Accept-Encoding", "identity");
         int code = con.getResponseCode();
+        lastUpstreamStatus = code;
+        lastUpstreamContentType = con.getContentType();
         if (code >= 400) {
             throw new IOException("HTTP " + code + " from " + url);
         }
@@ -167,6 +184,7 @@ public class EpubCacheService {
             throw new IOException("Remote content too large: " + contentLen);
         }
         URL finalUrl = con.getURL();
+        lastFinalUrl = finalUrl != null ? finalUrl.toString() : null;
         if (!isAllowed(finalUrl)) {
             throw new IOException("Redirected host not allowed: " + finalUrl.getHost());
         }
@@ -383,4 +401,11 @@ public class EpubCacheService {
         for (byte b : a) sb.append(String.format("%02x", b));
         return sb.toString();
     }
+
+    // --- Diagnostics accessors for last operation ---
+    public boolean isLastFromCache() { return lastFromCache; }
+    public String getLastFinalUrl() { return lastFinalUrl; }
+    public int getLastUpstreamStatus() { return lastUpstreamStatus; }
+    public String getLastUpstreamContentType() { return lastUpstreamContentType; }
+    public String getLastHeadHex() { return lastHeadHex; }
 }
