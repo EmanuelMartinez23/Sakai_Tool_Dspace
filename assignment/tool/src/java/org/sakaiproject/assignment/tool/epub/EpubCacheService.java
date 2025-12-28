@@ -149,24 +149,58 @@ public class EpubCacheService {
                 throw ex;
             }
         }
-        if (tmp.length() <= 0) {
-            //noinspection ResultOfMethodCallIgnored
-            tmp.delete();
-            throw new IOException("Downloaded file is empty");
-        }
-        if (tmp.length() > maxBytes) {
-            //noinspection ResultOfMethodCallIgnored
-            tmp.delete();
-            throw new IOException("Downloaded file exceeds max size: " + tmp.length());
-        }
-        // Validate ZIP magic before promoting to cache
-        byte[] head = readHead(tmp, 8);
-        lastHeadHex = bytesToHex(head);
-        if (!isZipFile(tmp)) {
-            long len = tmp.length();
-            //noinspection ResultOfMethodCallIgnored
-            tmp.delete();
-            throw new IOException("Upstream did not return EPUB (ZIP). firstBytes=" + lastHeadHex + ", length=" + len + (lastUpstreamContentType != null ? ", ctype=" + lastUpstreamContentType : ""));
+        // Run validations; on failure, attempt demo fallback once
+        try {
+            if (tmp.length() <= 0) {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+                throw new IOException("Downloaded file is empty");
+            }
+            if (tmp.length() > maxBytes) {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+                throw new IOException("Downloaded file exceeds max size: " + tmp.length());
+            }
+            // Validate ZIP magic before promoting to cache
+            byte[] head = readHead(tmp, 8);
+            lastHeadHex = bytesToHex(head);
+            if (!isZipFile(tmp)) {
+                long len = tmp.length();
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+                throw new IOException("Upstream did not return EPUB (ZIP). firstBytes=" + lastHeadHex + ", length=" + len + (lastUpstreamContentType != null ? ", ctype=" + lastUpstreamContentType : ""));
+            }
+        } catch (IOException vex) {
+            if (!usedDemo && demoUrl != null && !demoUrl.isEmpty() && !sameHost(url, demoUrl)) {
+                log.warn("[EPUB] Validation failed for {} ({}). Retrying with demo URL.", url, vex.getMessage());
+                URL durl = new URL(demoUrl);
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+                downloadPlain(durl, tmp);
+                usedDemo = true;
+                lastFinalUrl = durl.toString();
+                // Re-run validations for the demo file
+                if (tmp.length() <= 0) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
+                    throw new IOException("Downloaded file is empty (demo)");
+                }
+                if (tmp.length() > maxBytes) {
+                    //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
+                    throw new IOException("Downloaded file exceeds max size (demo): " + tmp.length());
+                }
+                byte[] head2 = readHead(tmp, 8);
+                lastHeadHex = bytesToHex(head2);
+                if (!isZipFile(tmp)) {
+                    long len2 = tmp.length();
+                    //noinspection ResultOfMethodCallIgnored
+                    tmp.delete();
+                    throw new IOException("Demo is not EPUB (ZIP). firstBytes=" + lastHeadHex + ", length=" + len2 + (lastUpstreamContentType != null ? ", ctype=" + lastUpstreamContentType : ""));
+                }
+            } else {
+                throw vex;
+            }
         }
         if (file.exists()) //noinspection ResultOfMethodCallIgnored
             file.delete();
