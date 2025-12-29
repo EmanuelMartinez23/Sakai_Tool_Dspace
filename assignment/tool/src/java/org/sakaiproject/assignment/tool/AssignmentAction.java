@@ -15420,6 +15420,140 @@ public class AssignmentAction extends PagedResourceActionII {
         }
     }
 
+    /**
+     * Demo EPUB endpoint routed via AssignmentAction to avoid portal mapping issues.
+     * Accepts GET/POST with eventSubmit_doEpub_demo=1 and optional useRemote=true to prefer remote demo URL.
+     */
+    public void doEpub_demo(RunData data) {
+        javax.servlet.http.HttpServletResponse resp = (javax.servlet.http.HttpServletResponse) org.sakaiproject.component.cover.ComponentManager
+                .get(org.sakaiproject.thread_local.api.ThreadLocalManager.class)
+                .get(org.sakaiproject.util.RequestFilter.CURRENT_HTTP_RESPONSE);
+        if (resp == null) {
+            return;
+        }
+        try {
+            resp.setHeader("X-EPUB-PROXY", "demo");
+            resp.setHeader("Cache-Control", "no-store, no-cache, max-age=0");
+            org.sakaiproject.component.api.ServerConfigurationService scs = org.sakaiproject.component.cover.ComponentManager.get(org.sakaiproject.component.api.ServerConfigurationService.class);
+            String demoUrl = scs != null ? scs.getString("assignment.epub.demo.url") : null;
+            boolean preferRemote = "true".equalsIgnoreCase(data.getParameters().getString("useRemote"));
+
+            // Try remote demo if configured or explicitly requested
+            if (demoUrl != null && !demoUrl.trim().isEmpty()) {
+                try {
+                    java.net.URL u = new java.net.URL(demoUrl);
+                    java.net.HttpURLConnection con = (java.net.HttpURLConnection) u.openConnection();
+                    con.setConnectTimeout(10000);
+                    con.setReadTimeout(20000);
+                    con.setInstanceFollowRedirects(true);
+                    int code = con.getResponseCode();
+                    if (code < 400) {
+                        String ctype = con.getContentType();
+                        if (ctype == null || !ctype.toLowerCase().contains("epub")) {
+                            ctype = "application/epub+zip";
+                        }
+                        resp.setHeader("X-EPUB-MODE", "demo-remote");
+                        java.net.URL fu = con.getURL();
+                        if (fu != null) resp.setHeader("X-EPUB-FINALURL", fu.toString());
+                        resp.setContentType(ctype);
+                        resp.setHeader("Content-Disposition", "inline; filename=demo.epub");
+                        try (java.io.InputStream in = con.getInputStream(); java.io.OutputStream out = resp.getOutputStream()) {
+                            byte[] buf = new byte[8192];
+                            int r; long total = 0L;
+                            while ((r = in.read(buf)) != -1) { out.write(buf, 0, r); total += r; }
+                            resp.setHeader("X-EPUB-PROXY-DIAG", "ok; remote-bytes=" + total);
+                            return;
+                        } finally {
+                            con.disconnect();
+                        }
+                    } else {
+                        resp.setHeader("X-EPUB-PROXY-DIAG", "remote-demo-http-" + code);
+                        if (!preferRemote) {
+                            // fall through to embedded
+                        } else {
+                            resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_GATEWAY, "Remote demo HTTP " + code);
+                            return;
+                        }
+                    }
+                } catch (Exception ex) {
+                    resp.setHeader("X-EPUB-PROXY-DIAG", "remote-demo-ex: " + ex.getClass().getSimpleName());
+                    if (preferRemote) {
+                        resp.sendError(javax.servlet.http.HttpServletResponse.SC_BAD_GATEWAY, "Remote demo error");
+                        return;
+                    }
+                }
+            }
+
+            // Embedded demo (always available)
+            resp.setHeader("X-EPUB-MODE", "demo-embedded");
+            resp.setContentType("application/epub+zip");
+            resp.setHeader("Content-Disposition", "inline; filename=demo.epub");
+
+            try (java.io.OutputStream os = resp.getOutputStream(); java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(os)) {
+                // mimetype first, uncompressed
+                java.util.zip.ZipEntry mimetype = new java.util.zip.ZipEntry("mimetype");
+                mimetype.setMethod(java.util.zip.ZipEntry.STORED);
+                byte[] mimeBytes = "application/epub+zip".getBytes("US-ASCII");
+                mimetype.setSize(mimeBytes.length);
+                java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+                crc.update(mimeBytes);
+                mimetype.setCrc(crc.getValue());
+                zos.putNextEntry(mimetype);
+                zos.write(mimeBytes);
+                zos.closeEntry();
+
+                // META-INF/container.xml
+                zos.putNextEntry(new java.util.zip.ZipEntry("META-INF/"));
+                zos.closeEntry();
+                zos.putNextEntry(new java.util.zip.ZipEntry("META-INF/container.xml"));
+                String container = "<?xml version=\"1.0\"?>\n" +
+                        "<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\">\n" +
+                        "  <rootfiles>\n" +
+                        "    <rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n" +
+                        "  </rootfiles>\n" +
+                        "</container>\n";
+                zos.write(container.getBytes("UTF-8"));
+                zos.closeEntry();
+
+                // OEBPS/title.xhtml
+                zos.putNextEntry(new java.util.zip.ZipEntry("OEBPS/title.xhtml"));
+                String title = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                        "<!DOCTYPE html>\n" +
+                        "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n" +
+                        "<head><title>Demo EPUB</title><meta charset=\"utf-8\"/></head>\n" +
+                        "<body><h1>EPUB de prueba</h1><p>Este es un EPUB mínimo generado por el servidor para probar el visor.</p></body>\n" +
+                        "</html>\n";
+                zos.write(title.getBytes("UTF-8"));
+                zos.closeEntry();
+
+                // OEBPS/content.opf
+                zos.putNextEntry(new java.util.zip.ZipEntry("OEBPS/content.opf"));
+                String opf = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                        "<package xmlns=\"http://www.idpf.org/2007/opf\" unique-identifier=\"BookId\" version=\"2.0\">\n" +
+                        "  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n" +
+                        "    <dc:title>Demo EPUB</dc:title>\n" +
+                        "    <dc:language>es</dc:language>\n" +
+                        "    <dc:identifier id=\"BookId\">urn:uuid:demo-epub</dc:identifier>\n" +
+                        "  </metadata>\n" +
+                        "  <manifest>\n" +
+                        "    <item id=\"title\" href=\"title.xhtml\" media-type=\"application/xhtml+xml\"/>\n" +
+                        "  </manifest>\n" +
+                        "  <spine>\n" +
+                        "    <itemref idref=\"title\"/>\n" +
+                        "  </spine>\n" +
+                        "</package>\n";
+                zos.write(opf.getBytes("UTF-8"));
+                zos.closeEntry();
+
+                zos.finish();
+                resp.setHeader("X-EPUB-PROXY-DIAG", "ok; embedded");
+            }
+        } catch (Exception ex) {
+            try { resp.setHeader("X-EPUB-PROXY-DIAG", "ex: " + ex.getClass().getSimpleName()); } catch (Throwable ignore) {}
+            try { resp.sendError(javax.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Demo failure"); } catch (Exception ignore) {}
+        }
+    }
+
     // Helper to hex-encode small byte arrays for diagnostics
     private static String bytesToHex(byte[] a) {
         if (a == null) return "";
