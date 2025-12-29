@@ -642,12 +642,172 @@
   }
 </script>
 
+<script type="text/javascript">
+  // Previsualizador EPUB desde cero, auto-contenido y sin depender de CDN
+  function openEpubPreview2(){
+    try {
+      var w = window.open('about:blank', 'epubPreviewWindow2', 'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no');
+      if (!w) {
+        alert('Por favor, permita las ventanas emergentes para ver la previsualización.');
+        return;
+      }
+
+      var d = w.document;
+      d.title = 'Previsualizador EPUB';
+      var head = d.head || d.getElementsByTagName('head')[0] || d.createElement('head');
+      if (!d.head) d.documentElement.insertBefore(head, d.body || null);
+
+      var style = d.createElement('style');
+      style.type = 'text/css';
+      style.appendChild(d.createTextNode(
+        '*{box-sizing:border-box}\n'+
+        'html,body{height:100%}\n'+
+        'body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f6f6f6;color:#222;display:flex;flex-direction:column}\n'+
+        'header{background:#0f6cbf;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px}\n'+
+        '#controls{margin-left:auto;display:flex;gap:6px}\n'+
+        'button{background:#fff;color:#222;border:1px solid #d0d0d0;border-radius:6px;padding:6px 10px;cursor:pointer}\n'+
+        'button:hover{background:#f0f0f0}\n'+
+        '#status{font-size:12px;opacity:.9;margin-left:8px}\n'+
+        'main{flex:1;display:flex;min-height:0}\n'+
+        '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;display:flex}\n'+
+        '#log{font-size:12px;color:#555;padding:6px 10px;white-space:pre-wrap}'
+      ));
+      head.appendChild(style);
+
+      var body = d.body || d.createElement('body');
+      if (!d.body) d.documentElement.appendChild(body);
+
+      var header = d.createElement('header');
+      var h1 = d.createElement('h1'); h1.textContent = 'Previsualizador EPUB'; header.appendChild(h1);
+      var status = d.createElement('div'); status.id = 'status'; header.appendChild(status);
+      var controls = d.createElement('div'); controls.id = 'controls';
+      var prevBtn = d.createElement('button'); prevBtn.id = 'prevBtn'; prevBtn.title = 'Página anterior'; prevBtn.appendChild(d.createTextNode('\u2B05'));
+      var nextBtn = d.createElement('button'); nextBtn.id = 'nextBtn'; nextBtn.title = 'Página siguiente'; nextBtn.appendChild(d.createTextNode('\u27A1'));
+      var demoBtn = d.createElement('button'); demoBtn.id = 'demoBtn'; demoBtn.title = 'Cargar EPUB de prueba'; demoBtn.textContent = 'Demo';
+      controls.appendChild(prevBtn); controls.appendChild(nextBtn); controls.appendChild(demoBtn); header.appendChild(controls);
+
+      var main = d.createElement('main');
+      var viewer = d.createElement('div'); viewer.id = 'viewer';
+      var log = d.createElement('div'); log.id = 'log'; log.setAttribute('aria-live','polite');
+      body.appendChild(header); body.appendChild(main); main.appendChild(viewer); body.appendChild(log);
+
+      function setStatus(msg){ status.textContent = msg || ''; }
+      function logMsg(){ try { var m = Array.prototype.slice.call(arguments).join(' '); (w.console&&w.console.log)&&w.console.log('[EPUB]', m); log.textContent = m; } catch(e){} }
+      w.onerror = function(m,s,l,c,e){ logMsg('Error global:', m, '@', s+':'+l); setStatus('Error'); };
+
+      // Helpers de carga de scripts (intenta varias rutas locales y luego CDN como último recurso)
+      function injectScript(src, onload, onerror){
+        var s = d.createElement('script'); s.src = src; s.async = true; s.onload = function(){ onload && onload(src); }; s.onerror = function(){ onerror && onerror(src); }; (head||d.documentElement).appendChild(s);
+      }
+      function loadFromCandidates(candidates, onok, onfail){
+        var tried = [];
+        (function next(){
+          var src = candidates.shift();
+          if (!src) { onfail && onfail(tried); return; }
+          injectScript(src, function(){ onok && onok(src); }, function(){ tried.push(src); next(); });
+        })();
+      }
+
+      var libsLoaded = { zip:false, epub:false };
+      function onLibReady(){ if (libsLoaded.zip && libsLoaded.epub) initViewerWith('demo'); }
+
+      // Cargar JSZip local -> CDN
+      loadFromCandidates([
+        '/library/webjars/jszip/3.10.1/dist/jszip.min.js',
+        '/library/webjars/jszip/3.7.1/dist/jszip.min.js',
+        '/library/webjars/jszip/3.6.0/jszip.min.js',
+        '/library/js/jszip.min.js'
+      ], function(src){ libsLoaded.zip = !!w.JSZip; setStatus('JSZip listo ('+src+')'); onLibReady(); }, function(){ injectScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', function(){ libsLoaded.zip = !!w.JSZip; setStatus('JSZip listo (CDN)'); onLibReady(); }, function(){ setStatus('Error'); logMsg('No se pudo cargar JSZip'); }); });
+
+      // Cargar epub.js local -> CDN
+      loadFromCandidates([
+        '/library/webjars/epubjs/0.3.93/dist/epub.min.js',
+        '/library/webjars/epub.js/0.3.93/dist/epub.min.js',
+        '/library/webjars/epubjs/0.3.88/dist/epub.min.js',
+        '/library/epub/epub.min.js'
+      ], function(src){ libsLoaded.epub = !!w.ePub; setStatus('epub.js listo ('+src+')'); onLibReady(); }, function(){ injectScript('https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js', function(){ libsLoaded.epub = !!w.ePub; setStatus('epub.js listo (CDN)'); onLibReady(); }, function(){ setStatus('Error'); logMsg('No se pudo cargar epub.js'); }); });
+
+      function bytesToHex(buf){ var a = new Uint8Array(buf.slice(0,8)); return Array.prototype.map.call(a, x=>('0'+x.toString(16)).slice(-2)).join(' '); }
+
+      function buildDemoProxyUrl(){
+        var u = new URL(window.location.href);
+        var sp = u.searchParams;
+        sp.set('eventSubmit_doEpub_proxy','1');
+        sp.set('demo','1');
+        sp.set('nocache','1');
+        u.search = sp.toString();
+        return u.toString();
+      }
+
+      function initViewerWith(mode){
+        try {
+          var proxyUrl = buildDemoProxyUrl();
+          setStatus('Descargando…');
+          var respHeaders = {};
+          w.fetch(proxyUrl, { credentials: 'same-origin' })
+            .then(function(res){
+              respHeaders.type = res.headers.get('content-type');
+              respHeaders.length = res.headers.get('content-length');
+              respHeaders.disposition = res.headers.get('content-disposition');
+              respHeaders.proxyHit = res.headers.get('x-epub-proxy');
+              respHeaders.diag = res.headers.get('x-epub-proxy-diag');
+              respHeaders.status = res.status;
+              respHeaders.statusText = res.statusText;
+              respHeaders.finalUrl = res.headers.get('x-epub-finalurl') || res.url;
+              respHeaders.cached = res.headers.get('x-epub-cached');
+              respHeaders.upstreamStatus = res.headers.get('x-epub-upstream-status');
+              respHeaders.upstreamType = res.headers.get('x-epub-upstream-type');
+              respHeaders.headHex = res.headers.get('x-epub-headhex');
+              return res.arrayBuffer().then(function(buf){ return { buf: buf, ok: res.ok }; });
+            })
+            .then(function(result){
+              var buf = result.buf; var ok = result.ok;
+              var b = new Uint8Array(buf);
+              if (!ok || b.length < 2 || b[0] !== 0x50 || b[1] !== 0x4B) {
+                setStatus('Error');
+                log.textContent = 'Fallo al descargar EPUB. status=' + respHeaders.status + ' ' + (respHeaders.statusText||'') + '\n' +
+                  'type=' + (respHeaders.type||'') + ' length=' + (respHeaders.length||'') + '\n' +
+                  'X-EPUB-PROXY=' + (respHeaders.proxyHit||'') + ' diag=' + (respHeaders.diag||'') + '\n' +
+                  'finalUrl=' + (respHeaders.finalUrl||'') + '\n' +
+                  'head=' + bytesToHex(buf);
+                return;
+              }
+              // Derivar nombre
+              var filename = 'demo.epub';
+              var cd = respHeaders.disposition || '';
+              var m = cd.match(/filename\*=UTF-8''([^;\s]+)/i) || cd.match(/filename\s*=\s*"?([^";]+)"?/i);
+              if (m && m[1]) { try { filename = decodeURIComponent(m[1]); } catch(e) { filename = m[1]; } }
+
+              // Crear Blob URL y abrir con epub.js
+              var blob = new Blob([buf], { type: 'application/epub+zip' });
+              var url = (w.URL||w.webkitURL).createObjectURL(blob);
+              var book = w.ePub(url);
+              var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
+              rendition.display();
+
+              prevBtn.onclick = function(){ rendition.prev(); };
+              nextBtn.onclick = function(){ rendition.next(); };
+
+              setStatus('Listo · ' + (filename||'EPUB'));
+              logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''));
+            })
+            .catch(function(err){ setStatus('Error'); logMsg('Excepción al descargar o inicializar:', err && (err.stack||err.message||err)); });
+        } catch (e) { setStatus('Error'); logMsg('Excepción en initViewer:', e && (e.stack||e)); }
+      }
+
+      // Botón Demo: reinicia y carga demo desde el servidor (AssignmentAction)
+      demoBtn.addEventListener('click', function(){ try { var v = d.getElementById('viewer'); if (v) v.innerHTML=''; initViewerWith('demo'); } catch(e){ setStatus('Error'); logMsg('Error al reiniciar demo:', e); } });
+
+      w.focus();
+    } catch (e) { if (window.console && console.error) console.error('Error abriendo previsualizador EPUB 2:', e); }
+  }
+</script>
 <div class="portletBody container-fluid">
  #navBarOnClick( $allowAddAssignment $allowGradeSubmission $allowAddAssignment $allowRecoverAssignment $allowAllGroups $assignmentscheck $allowUpdateSite $enableViewOption $view "newAssignmentForm" "new" )
 
     <!-- Botón de previsualización EPUB (temporal, en blanco) -->
     <div class="d-flex justify-content-end mb-3">
-      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview()">
+      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview2()">
         <span class="me-1" aria-hidden="true"><i class="si si-eye"></i></span>
         Previsualizar EPUB
       </button>
