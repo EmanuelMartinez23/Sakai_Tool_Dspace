@@ -778,18 +778,43 @@
               var m = cd.match(/filename\*=UTF-8''([^;\s]+)/i) || cd.match(/filename\s*=\s*"?([^";]+)"?/i);
               if (m && m[1]) { try { filename = decodeURIComponent(m[1]); } catch(e) { filename = m[1]; } }
 
-              // Crear Blob URL y abrir con epub.js
+              // Abrir desde memoria con epub.js 0.3.x (modo binary) y fallback a blobUrl
+              var book, rendition;
+              try {
+                book = w.ePub({ replacements: 'blobUrl' });
+                if (book && typeof book.open === 'function') {
+                  return book.open(buf, 'binary').then(function(){
+                    rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
+                    rendition.display();
+                    prevBtn.onclick = function(){ rendition.prev(); };
+                    nextBtn.onclick = function(){ rendition.next(); };
+                    setStatus('Listo · ' + (filename||'EPUB') + ' · modo=binary');
+                    logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''), 'mode=binary');
+                  }).catch(function(e){
+                    // Fallback a blobUrl si el modo binary falla
+                    var blob = new Blob([buf], { type: 'application/epub+zip' });
+                    var url = (w.URL||w.webkitURL).createObjectURL(blob);
+                    var book2 = w.ePub(url, { replacements: 'blobUrl' });
+                    var rendition2 = book2.renderTo('viewer', { width: '100%', height: '100%' });
+                    rendition2.display();
+                    prevBtn.onclick = function(){ rendition2.prev(); };
+                    nextBtn.onclick = function(){ rendition2.next(); };
+                    setStatus('Listo · ' + (filename||'EPUB') + ' · modo=blobUrl');
+                    logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''), 'mode=blobUrl');
+                  });
+                }
+              } catch(e) {}
+
+              // Fallback por si la rama anterior no se ejecutó
               var blob = new Blob([buf], { type: 'application/epub+zip' });
               var url = (w.URL||w.webkitURL).createObjectURL(blob);
-              var book = w.ePub(url);
-              var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
+              book = w.ePub(url, { replacements: 'blobUrl' });
+              rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
               rendition.display();
-
               prevBtn.onclick = function(){ rendition.prev(); };
               nextBtn.onclick = function(){ rendition.next(); };
-
-              setStatus('Listo · ' + (filename||'EPUB'));
-              logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''));
+              setStatus('Listo · ' + (filename||'EPUB') + ' · modo=blobUrl');
+              logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''), 'mode=blobUrl');
             })
             .catch(function(err){ setStatus('Error'); logMsg('Excepción al descargar o inicializar:', err && (err.stack||err.message||err)); });
         } catch (e) { setStatus('Error'); logMsg('Excepción en initViewer:', e && (e.stack||e)); }

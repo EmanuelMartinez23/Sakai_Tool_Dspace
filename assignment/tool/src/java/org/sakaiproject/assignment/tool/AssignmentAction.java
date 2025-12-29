@@ -15470,6 +15470,28 @@ public class AssignmentAction extends PagedResourceActionII {
             zos.write(title.getBytes("UTF-8"));
             zos.closeEntry();
 
+            // OEBPS/chapter1.xhtml
+            zos.putNextEntry(new java.util.zip.ZipEntry("OEBPS/chapter1.xhtml"));
+            String ch1 = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                    "<!DOCTYPE html>\n" +
+                    "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n" +
+                    "<head><title>Capítulo 1</title><meta charset=\"utf-8\"/></head>\n" +
+                    "<body><h2>Capítulo 1</h2><p>Contenido de ejemplo del capítulo 1.</p></body>\n" +
+                    "</html>\n";
+            zos.write(ch1.getBytes("UTF-8"));
+            zos.closeEntry();
+
+            // OEBPS/chapter2.xhtml
+            zos.putNextEntry(new java.util.zip.ZipEntry("OEBPS/chapter2.xhtml"));
+            String ch2 = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                    "<!DOCTYPE html>\n" +
+                    "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n" +
+                    "<head><title>Capítulo 2</title><meta charset=\"utf-8\"/></head>\n" +
+                    "<body><h2>Capítulo 2</h2><p>Contenido de ejemplo del capítulo 2.</p></body>\n" +
+                    "</html>\n";
+            zos.write(ch2.getBytes("UTF-8"));
+            zos.closeEntry();
+
             // OEBPS/content.opf
             zos.putNextEntry(new java.util.zip.ZipEntry("OEBPS/content.opf"));
             String opf = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
@@ -15481,9 +15503,13 @@ public class AssignmentAction extends PagedResourceActionII {
                     "  </metadata>\n" +
                     "  <manifest>\n" +
                     "    <item id=\"title\" href=\"title.xhtml\" media-type=\"application/xhtml+xml\"/>\n" +
+                    "    <item id=\"ch1\" href=\"chapter1.xhtml\" media-type=\"application/xhtml+xml\"/>\n" +
+                    "    <item id=\"ch2\" href=\"chapter2.xhtml\" media-type=\"application/xhtml+xml\"/>\n" +
                     "  </manifest>\n" +
                     "  <spine>\n" +
                     "    <itemref idref=\"title\"/>\n" +
+                    "    <itemref idref=\"ch1\"/>\n" +
+                    "    <itemref idref=\"ch2\"/>\n" +
                     "  </spine>\n" +
                     "</package>\n";
             zos.write(opf.getBytes("UTF-8"));
