@@ -823,8 +823,56 @@
               // Nombre a mostrar en estado
               var filename = deriveNiceFilename(respHeaders);
 
-              // Opciones de renderizado: flujo continuo por scroll (sin manager paginado)
-              var renderOpts = { width:'100%', height:'100%', flow:'scrolled', spread:'none', allowScriptedContent:false };
+              // Opciones de renderizado: flujo continuo por documento (cada sección ajusta su altura)
+              var renderOpts = { width:'100%', height:'100%', flow:'scrolled-doc', spread:'none', allowScriptedContent:false };
+
+              // Afinar estilos y eventos para evitar cortes/alturas 0
+              function enhanceRendition(r){
+                try {
+                  // Estilos internos del libro (dentro de los iframes)
+                  if (r && r.themes && typeof r.themes.default === 'function') {
+                    r.themes.default({
+                      'html, body': { margin:'0 !important', padding:'0 !important' },
+                      'img, svg, video, canvas': { maxWidth:'100% !important', height:'auto !important' }
+                    });
+                  }
+                  // Asegurar que las vistas expandan su altura al contenido
+                  if (r && typeof r.on === 'function') {
+                    r.on('rendered', function(section, view){
+                      try {
+                        if (view && typeof view.expand === 'function') {
+                          view.expand();
+                        }
+                        // Medir contenido del iframe y fijar altura exacta para evitar "cortes"
+                        setTimeout(function(){
+                          try {
+                            var ifr = view && view.iframe;
+                            var doc = ifr && (ifr.contentDocument || ifr.contentWindow && ifr.contentWindow.document);
+                            if (doc && doc.body) {
+                              // Reset heights to auto, then measure scrollHeight
+                              ifr.style.height = 'auto';
+                              var h = Math.max(doc.body.scrollHeight || 0, doc.documentElement ? doc.documentElement.scrollHeight || 0 : 0);
+                              if (h && h > 0) {
+                                ifr.style.height = h + 'px';
+                              }
+                              // Evitar overflow oculto dentro del contenido
+                              doc.documentElement && (doc.documentElement.style.overflow = 'visible');
+                              doc.body.style.overflow = 'visible';
+                              doc.body.style.margin = '0';
+                              doc.body.style.padding = '0';
+                            }
+                          } catch(e){}
+                          try { r.resize(); } catch(e){}
+                        }, 30);
+                      } catch(e){}
+                    });
+                    r.on('relocated', function(loc){
+                      // Cada vez que se reubica (por scroll o flechas), recalcular
+                      try { r.resize(); } catch(e){}
+                    });
+                  }
+                } catch(e) {}
+              }
 
               var book, rendition;
               function hookNav(r){
@@ -846,8 +894,10 @@
                 if (book && typeof book.open === 'function') {
                   return book.open(buf, 'binary').then(function(){
                     rendition = book.renderTo('viewer', renderOpts);
+                    enhanceRendition(rendition);
                     hookNav(rendition);
                     return displayStart(book, rendition).then(function(){
+                      try { setTimeout(function(){ rendition.resize(); }, 30); } catch(e){}
                       setStatus('Listo · ' + (filename||'EPUB'));
                       logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''));
                     });
