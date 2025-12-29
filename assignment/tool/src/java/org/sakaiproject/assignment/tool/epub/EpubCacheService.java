@@ -331,6 +331,7 @@ public class EpubCacheService {
             downloadPlain(frontDownload, out);
             return;
         }
+        // 1) CSRF preflight
         URL apiCsrf = new URL(dspaceApiBase + "/security/csrf");
         HttpURLConnection c1 = (HttpURLConnection) apiCsrf.openConnection();
         c1.setConnectTimeout(10000);
@@ -340,15 +341,22 @@ public class EpubCacheService {
         c1.setRequestProperty("Accept", "application/json");
         int code1 = c1.getResponseCode();
         String csrf = c1.getHeaderField("X-CSRF-TOKEN");
-        String cookie1 = c1.getHeaderField("Set-Cookie");
+        String setCookie1 = c1.getHeaderField("Set-Cookie");
+        // Some DSpace setups only provide XSRF via cookie (DSPACE-XSRF-COOKIE)
+        if ((csrf == null || csrf.isEmpty()) && setCookie1 != null) {
+            String xsrfFromCookie = extractXsrfFromSetCookie(setCookie1);
+            if (xsrfFromCookie != null && !xsrfFromCookie.isEmpty()) {
+                csrf = xsrfFromCookie;
+            }
+        }
         c1.disconnect();
-        if (code1 >= 400 || csrf == null || csrf.isEmpty() || cookie1 == null || cookie1.isEmpty()) {
+        if (code1 >= 400 || csrf == null || csrf.isEmpty() || setCookie1 == null || setCookie1.isEmpty()) {
             // Try unauthenticated plain as a fallback
             downloadPlain(frontDownload, out);
             return;
         }
 
-        // Login
+        // 2) Login
         URL apiLogin = new URL(dspaceApiBase + "/authn/login");
         HttpURLConnection c2 = (HttpURLConnection) apiLogin.openConnection();
         c2.setConnectTimeout(10000);
@@ -358,41 +366,69 @@ public class EpubCacheService {
         c2.setRequestMethod("POST");
         c2.setRequestProperty("User-Agent", UA);
         c2.setRequestProperty("X-XSRF-TOKEN", csrf);
-        c2.setRequestProperty("Cookie", cookie1);
+        c2.setRequestProperty("Cookie", buildCookieHeader(setCookie1, csrf));
         c2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+        // Some DSpace expect 'email', others 'user'. Try email first, then fallback to user if 4xx
         String body = "email=" + urlEnc(dspaceEmail) + "&password=" + urlEnc(dspacePassword);
         try (java.io.OutputStream os = c2.getOutputStream()) {
             os.write(body.getBytes(StandardCharsets.UTF_8));
         }
         int code2 = c2.getResponseCode();
-        String cookie2 = c2.getHeaderField("Set-Cookie");
-        c2.disconnect();
+        String setCookie2 = c2.getHeaderField("Set-Cookie");
         if (code2 >= 400) {
+            // retry with 'user='
+            c2.disconnect();
+            c2 = (HttpURLConnection) apiLogin.openConnection();
+            c2.setConnectTimeout(10000);
+            c2.setReadTimeout(20000);
+            c2.setInstanceFollowRedirects(false);
+            c2.setDoOutput(true);
+            c2.setRequestMethod("POST");
+            c2.setRequestProperty("User-Agent", UA);
+            c2.setRequestProperty("X-XSRF-TOKEN", csrf);
+            c2.setRequestProperty("Cookie", buildCookieHeader(setCookie1, csrf));
+            c2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            String body2 = "user=" + urlEnc(dspaceEmail) + "&password=" + urlEnc(dspacePassword);
+            try (java.io.OutputStream os2 = c2.getOutputStream()) {
+                os2.write(body2.getBytes(StandardCharsets.UTF_8));
+            }
+            code2 = c2.getResponseCode();
+            setCookie2 = c2.getHeaderField("Set-Cookie");
+        }
+        if (code2 >= 400) {
+            c2.disconnect();
             throw new IOException("HTTP " + code2 + " during DSpace login");
         }
-        // Merge cookies
-        String cookies = mergeCookies(cookie1, cookie2);
+        // Merge cookies for authenticated session
+        String cookies = mergeCookies(setCookie1, setCookie2);
+        c2.disconnect();
 
-        // GET content
+        // 3) GET content (authenticated)
         URL apiContent = new URL(dspaceApiBase + "/core/bitstreams/" + uuid + "/content");
         HttpURLConnection c3 = (HttpURLConnection) apiContent.openConnection();
         c3.setConnectTimeout(15000);
         c3.setReadTimeout(30000);
         c3.setInstanceFollowRedirects(true);
         c3.setRequestProperty("User-Agent", UA);
-        c3.setRequestProperty("Accept", "application/epub+zip,application/octet-stream;q=0.9,*/*;q=0.1");
+        c3.setRequestProperty("Accept", "application/epub+zip,application/zip;q=0.95,application/octet-stream;q=0.9,*/*;q=0.1");
         c3.setRequestProperty("Accept-Encoding", "identity");
         c3.setRequestProperty("Cookie", cookies);
         int code3 = c3.getResponseCode();
+        lastUpstreamStatus = code3;
+        lastUpstreamContentType = c3.getContentType();
+        URL finalUrl = c3.getURL();
+        lastFinalUrl = finalUrl != null ? finalUrl.toString() : null;
         if (code3 >= 400) {
+            c3.disconnect();
             throw new IOException("HTTP " + code3 + " from " + apiContent);
         }
-        URL finalUrl = c3.getURL();
-        if (!isAllowed(finalUrl)) {
+        if (finalUrl != null && !isAllowed(finalUrl)) {
+            c3.disconnect();
             throw new IOException("Redirected host not allowed: " + finalUrl.getHost());
         }
         long contentLen = c3.getContentLengthLong();
         if (contentLen > 0 && contentLen > maxBytes) {
+            c3.disconnect();
             throw new IOException("Remote content too large: " + contentLen);
         }
         try (InputStream is = c3.getInputStream(); FileOutputStream fos = new FileOutputStream(out)) {
@@ -430,6 +466,41 @@ public class EpubCacheService {
             }
         }
         return sb.toString();
+    }
+
+    // Extract XSRF token value from Set-Cookie header (looks like DSPACE-XSRF-COOKIE=<token>)
+    private String extractXsrfFromSetCookie(String setCookieHeader) {
+        if (setCookieHeader == null) return null;
+        // Split by comma to handle multiple Set-Cookie values in a single header line
+        String[] parts = setCookieHeader.split(",");
+        for (String part : parts) {
+            String[] attrs = part.split(";", 0);
+            if (attrs.length > 0) {
+                String nv = attrs[0].trim();
+                int idx = nv.indexOf('=');
+                if (idx > 0) {
+                    String name = nv.substring(0, idx).trim();
+                    String val = nv.substring(idx + 1).trim();
+                    if ("DSPACE-XSRF-COOKIE".equalsIgnoreCase(name)) {
+                        return val;
+                    }
+                }
+            }
+        }
+        // Fallback: regex search
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)DSPACE-XSRF-COOKIE=([^;,#\\s]+)").matcher(setCookieHeader);
+        if (m.find()) return m.group(1);
+        return null;
+    }
+
+    // Build Cookie header for login combining Set-Cookie values and ensuring XSRF cookie is present
+    private String buildCookieHeader(String setCookieHeader, String xsrfToken) {
+        String cookies = mergeCookies(setCookieHeader);
+        if (xsrfToken != null && !xsrfToken.isEmpty() && cookies.toLowerCase().indexOf("dspace-xsrf-cookie=") < 0) {
+            if (!cookies.isEmpty()) cookies += "; ";
+            cookies += "DSPACE-XSRF-COOKIE=" + xsrfToken;
+        }
+        return cookies;
     }
 
     private boolean isExpired(File f) {
