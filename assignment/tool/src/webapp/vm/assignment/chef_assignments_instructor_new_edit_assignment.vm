@@ -644,7 +644,7 @@
 
 <script type="text/javascript">
   // Previsualizador EPUB desde cero, auto-contenido y sin depender de CDN
-  function openEpubPreview2(){
+  function openEpubPreview2(sourceUrl){
     try {
       var w = window.open('about:blank', 'epubPreviewWindow2', 'width=1024,height=768,menubar=no,toolbar=no,location=no,status=no');
       if (!w) {
@@ -654,6 +654,8 @@
 
       var d = w.document;
       d.title = 'Previsualizador EPUB';
+      var currentSource = (typeof sourceUrl === 'string') ? sourceUrl : '';
+      var popupUseDemo = !currentSource;
       var head = d.head || d.getElementsByTagName('head')[0] || d.createElement('head');
       if (!d.head) d.documentElement.insertBefore(head, d.body || null);
 
@@ -729,11 +731,15 @@
 
       function bytesToHex(buf){ var a = new Uint8Array(buf.slice(0,8)); return Array.prototype.map.call(a, x=>('0'+x.toString(16)).slice(-2)).join(' '); }
 
-      function buildDemoProxyUrl(){
+      function buildProxyUrl(){
         var u = new URL(window.location.href);
         var sp = u.searchParams;
         sp.set('eventSubmit_doEpub_proxy','1');
-        sp.set('demo','1');
+        if (popupUseDemo || !currentSource) {
+          sp.set('demo','1');
+        } else {
+          sp.set('url', currentSource);
+        }
         sp.set('nocache','1');
         u.search = sp.toString();
         return u.toString();
@@ -820,8 +826,16 @@
         } catch (e) { setStatus('Error'); logMsg('Excepción en initViewer:', e && (e.stack||e)); }
       }
 
-      // Botón Demo: reinicia y carga demo desde el servidor (AssignmentAction)
-      demoBtn.addEventListener('click', function(){ try { var v = d.getElementById('viewer'); if (v) v.innerHTML=''; initViewerWith('demo'); } catch(e){ setStatus('Error'); logMsg('Error al reiniciar demo:', e); } });
+      // Botón Demo: fuerza modo demo aunque se haya abierto con un bitstream
+      demoBtn.addEventListener('click', function(){
+        try {
+          popupUseDemo = true; // ignorar currentSource y usar demo
+          currentSource = '';
+          var v = d.getElementById('viewer');
+          if (v) v.innerHTML='';
+          initViewerWith('demo');
+        } catch(e){ setStatus('Error'); logMsg('Error al reiniciar demo:', e); }
+      });
 
       w.focus();
     } catch (e) { if (window.console && console.error) console.error('Error abriendo previsualizador EPUB 2:', e); }
@@ -1026,8 +1040,14 @@
                                                                             <div class="bitstream-buttons">
                                                                                 #foreach($b in $bss)
                                                                                     #set($name = "$!b.name")
-                                                                                    #if($name && $name.toLowerCase().endsWith('.epub') && $b.uuid)
-                                                                                        <a class="btn btn-primary btn-sm preview-epub" href="#" data-uuid="$!b.uuid" title="Previsualizar $!b.name" target="_blank">EPUB</a>
+                                                                                    #set($isEpub = false)
+                                                                                    #if($name && $name.toLowerCase().endsWith('.epub'))
+                                                                                        #set($isEpub = true)
+                                                                                    #elseif($b.contentType && $b.contentType.toLowerCase().contains('epub'))
+                                                                                        #set($isEpub = true)
+                                                                                    #end
+                                                                                    #if($isEpub && $b.downloadUrl)
+                                                                                        <button type="button" class="btn btn-primary btn-sm preview-epub" onclick="openEpubPreview2('$!b.downloadUrl')" title="Previsualizar $!b.name">EPUB</button>
                                                                                     #else
                                                                                         <span class="text-muted">Sin vista previa</span>
                                                                                     #end
