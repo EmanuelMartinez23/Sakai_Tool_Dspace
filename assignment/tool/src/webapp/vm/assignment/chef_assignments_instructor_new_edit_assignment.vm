@@ -825,14 +825,25 @@
               // Nombre a mostrar en estado
               var filename = deriveNiceFilename(respHeaders);
 
-              // Opciones de renderizado: flujo continuo por documento (cada sección ajusta su altura)
-              var renderOpts = { width:'100%', height:'100%', flow:'scrolled-doc', spread:'none', allowScriptedContent:false };
+              // Opciones de renderizado: flujo continuo por documento; contenedor contenido para evitar recortes
+              var renderOpts = { width:'100%', flow:'scrolled-doc', spread:'none', allowScriptedContent:true, contained:true };
 
               // Afinar estilos y eventos para evitar cortes/alturas 0
               function adjustView(view, r){
                 try {
                   if (!view || !view.iframe) return;
                   var ifr = view.iframe;
+                  // Asegurar sandbox con same-origin + scripts para poder medir y aplicar estilos
+                  try {
+                    var sb = (ifr.getAttribute('sandbox') || '').toLowerCase();
+                    var need = [];
+                    if (sb.indexOf('allow-same-origin') < 0) need.push('allow-same-origin');
+                    if (sb.indexOf('allow-scripts') < 0) need.push('allow-scripts');
+                    if (need.length) {
+                      var merged = (sb ? sb + ' ' : '') + need.join(' ');
+                      ifr.setAttribute('sandbox', merged.trim());
+                    }
+                  } catch(e){}
                   var doc = ifr && (ifr.contentDocument || ifr.contentWindow && ifr.contentWindow.document);
                   if (!doc || !doc.body) return;
                   // Neutralizar ancho fijo de eXe/EPUB y permitir crecimiento vertical
@@ -910,6 +921,22 @@
                     if (win && win.MutationObserver) {
                       var mo = new win.MutationObserver(function(){ setTimeout(adjust, 10); });
                       mo.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
+                    }
+                  } catch(e){}
+
+                  // Tratar iframes/embeds externos dentro del capítulo para que no colapsen la altura
+                  try {
+                    var embeds = doc.querySelectorAll('iframe,object,embed');
+                    for (var eidx=0; eidx<embeds.length; eidx++){
+                      var el = embeds[eidx];
+                      try {
+                        el.style.display = 'block';
+                        el.style.maxWidth = '100%';
+                        if (!el.style.height || el.style.height === '0px') {
+                          el.style.minHeight = '400px'; // altura mínima razonable para evitar colapso
+                        }
+                        el.addEventListener && el.addEventListener('load', function(){ setTimeout(adjust, 10); });
+                      } catch(e){}
                     }
                   } catch(e){}
                 } catch(e){}
@@ -1006,7 +1033,7 @@
               }
 
               try {
-                book = w.ePub({ replacements: 'blobUrl' });
+                book = w.ePub({ replacements: 'blobUrl', allowScriptedContent: true });
                 if (book && typeof book.open === 'function') {
                   return book.open(buf, 'binary').then(function(){
                     rendition = book.renderTo('viewer', renderOpts);
