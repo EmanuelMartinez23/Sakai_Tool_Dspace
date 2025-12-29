@@ -845,20 +845,53 @@
                     doc.body.style.padding = '0';
                     doc.body.style.width = 'auto';
                     doc.body.style.maxWidth = '100%';
-                    // Imágenes fluidas
+                    // Imágenes fluidas y normalización agresiva de contenedores (eXe)
                     var ss = doc.getElementById('epubjs-fixes') || doc.createElement('style');
                     ss.id = 'epubjs-fixes';
-                    ss.textContent = 'img,svg,video,canvas{max-width:100%!important;height:auto!important}';
+                    ss.textContent = [
+                      'html,body,#outer,#main,section,article,div,header,footer,nav,aside{',
+                      '  width:auto !important; max-width:100% !important; height:auto !important; min-height:0 !important; overflow:visible !important; box-sizing:border-box !important;',
+                      '}',
+                      '.iDevice_wrapper,.iDevice,.iDevice_inner,.iDevice_content_wrapper,.exe-text{',
+                      '  width:auto !important; max-width:100% !important; height:auto !important; overflow:visible !important;',
+                      '}',
+                      'img,svg,video,canvas{max-width:100% !important;height:auto !important}',
+                      'table{max-width:100% !important; width:auto !important}',
+                      'iframe,object,embed{max-width:100% !important}',
+                    ].join('\n');
                     doc.head && doc.head.appendChild(ss);
+                    // Ajustar meta viewport si existe (evitar width fijo 1002)
+                    try {
+                      var metas = doc.querySelectorAll('meta[name="viewport"]');
+                      if (metas && metas.length) {
+                        metas[0].setAttribute('content','width=device-width, initial-scale=1');
+                      } else {
+                        var mv = doc.createElement('meta');
+                        mv.setAttribute('name','viewport');
+                        mv.setAttribute('content','width=device-width, initial-scale=1');
+                        doc.head && doc.head.appendChild(mv);
+                      }
+                    } catch(e){}
                   } catch(e){}
                   // Medición y ajuste de altura
                   ifr.style.height = 'auto';
-                  var h = Math.max(
+                  // Calcular altura por múltiples métodos (robusto)
+                  var hScroll = Math.max(
                     doc.body.scrollHeight||0,
                     doc.documentElement?doc.documentElement.scrollHeight||0:0,
-                    doc.body.offsetHeight||0
+                    doc.body.offsetHeight||0,
+                    doc.documentElement?doc.documentElement.offsetHeight||0:0
                   );
-                  if (h && h > 0) ifr.style.height = h + 'px';
+                  var hBottom = 0;
+                  try {
+                    var all = doc.body.getElementsByTagName('*');
+                    for (var q=0;q<all.length;q++){
+                      var rect = all[q].getBoundingClientRect && all[q].getBoundingClientRect();
+                      if (rect && isFinite(rect.bottom)) { if (rect.bottom > hBottom) hBottom = rect.bottom; }
+                    }
+                  } catch(e){}
+                  var h = Math.max(hScroll, Math.ceil(hBottom));
+                  if (h && h > 0) ifr.style.height = (h + 16) + 'px';
                   // Escuchas para cargar imágenes y mutaciones
                   try {
                     var win = ifr.contentWindow;
