@@ -672,9 +672,11 @@
         '#status{font-size:12px;opacity:.9;margin-left:8px}\n'+
         'main{flex:1;display:flex;min-height:0}\n'+
         '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:auto;display:block}\n'+
-                '#viewer > iframe, #viewer .epub-container{width:100% !important; height:100% !important;}\n'+
+                '#viewer > iframe, #viewer .epub-container{width:100% !important; height:auto !important;}\n'+
+                '#viewer .epub-view iframe{width:100% !important; height:auto !important; display:block;}\n'+
                 'html, body, main, #viewer{height:100%}\n'+
                 'body{overflow:hidden}\n'+
+                '#viewer .epub-container{display:block !important;}\n'+
         '#log{font-size:12px;color:#555;padding:6px 10px;white-space:pre-wrap}'
       ));
       head.appendChild(style);
@@ -821,8 +823,8 @@
               // Nombre a mostrar en estado
               var filename = deriveNiceFilename(respHeaders);
 
-              // Opciones de renderizado: continuo y de alto completo
-              var renderOpts = { width:'100%', height:'100%', flow:'scrolled-doc', manager:'continuous', spread:'none', allowScriptedContent:false };
+              // Opciones de renderizado: flujo continuo por scroll (sin manager paginado)
+              var renderOpts = { width:'100%', height:'100%', flow:'scrolled', spread:'none', allowScriptedContent:false };
 
               var book, rendition;
               function hookNav(r){
