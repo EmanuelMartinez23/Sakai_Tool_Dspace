@@ -673,10 +673,12 @@
         'main{flex:1;display:flex;min-height:0}\n'+
         '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:auto;display:block}\n'+
                 '#viewer > iframe, #viewer .epub-container{width:100% !important; height:auto !important;}\n'+
-                '#viewer .epub-view iframe{width:100% !important; height:auto !important; display:block;}\n'+
+                '#viewer .epub-container, #viewer .epub-container .epub-view{height:auto !important; min-height:1px !important; display:block !important;}\n'+
+                '#viewer .epub-view iframe{width:100% !important; height:auto !important; display:block !important;}\n'+
                 'html, body, main, #viewer{height:100%}\n'+
                 'body{overflow:hidden}\n'+
                 '#viewer .epub-container{display:block !important;}\n'+
+                '#viewer .epub-container .epub-view{overflow:visible !important;}\n'+
         '#log{font-size:12px;color:#555;padding:6px 10px;white-space:pre-wrap}'
       ));
       head.appendChild(style);
@@ -827,12 +829,72 @@
               var renderOpts = { width:'100%', height:'100%', flow:'scrolled-doc', spread:'none', allowScriptedContent:false };
 
               // Afinar estilos y eventos para evitar cortes/alturas 0
+              function adjustView(view, r){
+                try {
+                  if (!view || !view.iframe) return;
+                  var ifr = view.iframe;
+                  var doc = ifr && (ifr.contentDocument || ifr.contentWindow && ifr.contentWindow.document);
+                  if (!doc || !doc.body) return;
+                  // Neutralizar ancho fijo de eXe/EPUB y permitir crecimiento vertical
+                  try {
+                    doc.documentElement && (doc.documentElement.style.overflow = 'visible');
+                    doc.documentElement && (doc.documentElement.style.width = 'auto');
+                    doc.documentElement && (doc.documentElement.style.maxWidth = '100%');
+                    doc.body.style.overflow = 'visible';
+                    doc.body.style.margin = '0';
+                    doc.body.style.padding = '0';
+                    doc.body.style.width = 'auto';
+                    doc.body.style.maxWidth = '100%';
+                    // Imágenes fluidas
+                    var ss = doc.getElementById('epubjs-fixes') || doc.createElement('style');
+                    ss.id = 'epubjs-fixes';
+                    ss.textContent = 'img,svg,video,canvas{max-width:100%!important;height:auto!important}';
+                    doc.head && doc.head.appendChild(ss);
+                  } catch(e){}
+                  // Medición y ajuste de altura
+                  ifr.style.height = 'auto';
+                  var h = Math.max(
+                    doc.body.scrollHeight||0,
+                    doc.documentElement?doc.documentElement.scrollHeight||0:0,
+                    doc.body.offsetHeight||0
+                  );
+                  if (h && h > 0) ifr.style.height = h + 'px';
+                  // Escuchas para cargar imágenes y mutaciones
+                  try {
+                    var win = ifr.contentWindow;
+                    var adjust = function(){
+                      try {
+                        var h2 = Math.max(doc.body.scrollHeight||0, doc.documentElement?doc.documentElement.scrollHeight||0:0, doc.body.offsetHeight||0);
+                        if (h2 && h2 > 0 && (parseInt(ifr.style.height,10)||0) !== h2) { ifr.style.height = h2 + 'px'; }
+                        r && r.resize && r.resize();
+                      } catch(e){}
+                    };
+                    win && win.addEventListener && win.addEventListener('load', function(){ setTimeout(adjust, 10); });
+                    var imgs = doc.images || [];
+                    for (var k=0;k<imgs.length;k++){
+                      try { imgs[k].addEventListener('load', function(){ setTimeout(adjust, 10); }); } catch(e){}
+                    }
+                    if (win && win.MutationObserver) {
+                      var mo = new win.MutationObserver(function(){ setTimeout(adjust, 10); });
+                      mo.observe(doc.body, { childList:true, subtree:true, attributes:true, attributeFilter:['style','class'] });
+                    }
+                  } catch(e){}
+                } catch(e){}
+              }
+
               function enhanceRendition(r){
                 try {
                   // Estilos internos del libro (dentro de los iframes)
                   if (r && r.themes && typeof r.themes.default === 'function') {
                     r.themes.default({
-                      'html, body': { margin:'0 !important', padding:'0 !important' },
+                      'html, body': {
+                        margin:'0 !important',
+                        padding:'0 !important',
+                        width:'auto !important',
+                        maxWidth:'100% !important',
+                        boxSizing:'border-box !important',
+                        overflow:'visible !important'
+                      },
                       'img, svg, video, canvas': { maxWidth:'100% !important', height:'auto !important' }
                     });
                   }
@@ -840,35 +902,17 @@
                   if (r && typeof r.on === 'function') {
                     r.on('rendered', function(section, view){
                       try {
-                        if (view && typeof view.expand === 'function') {
-                          view.expand();
-                        }
-                        // Medir contenido del iframe y fijar altura exacta para evitar "cortes"
-                        setTimeout(function(){
-                          try {
-                            var ifr = view && view.iframe;
-                            var doc = ifr && (ifr.contentDocument || ifr.contentWindow && ifr.contentWindow.document);
-                            if (doc && doc.body) {
-                              // Reset heights to auto, then measure scrollHeight
-                              ifr.style.height = 'auto';
-                              var h = Math.max(doc.body.scrollHeight || 0, doc.documentElement ? doc.documentElement.scrollHeight || 0 : 0);
-                              if (h && h > 0) {
-                                ifr.style.height = h + 'px';
-                              }
-                              // Evitar overflow oculto dentro del contenido
-                              doc.documentElement && (doc.documentElement.style.overflow = 'visible');
-                              doc.body.style.overflow = 'visible';
-                              doc.body.style.margin = '0';
-                              doc.body.style.padding = '0';
-                            }
-                          } catch(e){}
-                          try { r.resize(); } catch(e){}
-                        }, 30);
+                        if (view && typeof view.expand === 'function') { view.expand(); }
+                        setTimeout(function(){ adjustView(view, r); }, 20);
                       } catch(e){}
                     });
                     r.on('relocated', function(loc){
-                      // Cada vez que se reubica (por scroll o flechas), recalcular
-                      try { r.resize(); } catch(e){}
+                      // Cada vez que se reubica (por scroll o flechas), recalcular vistas visibles
+                      try {
+                        var vs = r.views && r.views();
+                        var arr = vs && (vs._views || vs.views) || [];
+                        for (var i=0;i<arr.length;i++) adjustView(arr[i], r);
+                      } catch(e){}
                     });
                   }
                 } catch(e) {}
@@ -884,7 +928,46 @@
               function displayStart(b, r){
                 try {
                   var start = pickStartHref(b);
-                  if (start) return r.display(start);
+                  var p = (start ? r.display(start) : r.display());
+                  return p.then(function(){
+                    try {
+                      // Si la primera vista parece "en blanco", avanzar a la siguiente sección lineal
+                      var views = r && typeof r.views === 'function' ? r.views()._views || r.views().views : null;
+                      var v = views && views.length ? views[0] : null;
+                      var ifr = v && v.iframe;
+                      var doc = ifr && (ifr.contentDocument || ifr.contentWindow && ifr.contentWindow.document);
+                      var looksBlank = false;
+                      if (doc && doc.body) {
+                        var txt = (doc.body.innerText || '').replace(/\s+/g,' ').trim();
+                        var h0 = Math.max(
+                          doc.body.scrollHeight||0,
+                          doc.documentElement?doc.documentElement.scrollHeight||0:0,
+                          doc.body.offsetHeight||0
+                        );
+                        looksBlank = (txt.length < 5) || (h0 < 40);
+                      }
+                      if (looksBlank) {
+                        // Buscar siguiente spineItem lineal y mostrarlo
+                        try {
+                          var items = (b && b.spine && b.spine.spineItems) ? b.spine.spineItems : [];
+                          var idx = -1;
+                          if (v && v.section && v.section.href) {
+                            for (var i=0;i<items.length;i++){ if (items[i].href === v.section.href) { idx = i; break; } }
+                          }
+                          var nextHref;
+                          for (var j = idx+1; j < items.length; j++) {
+                            var it = items[j];
+                            var props = (it && it.properties) ? (''+it.properties).toLowerCase() : '';
+                            var linear = (it && it.linear) ? (''+it.linear).toLowerCase() : 'yes';
+                            if (linear !== 'no' && props.indexOf('nav') === -1 && props.indexOf('cover') === -1) { nextHref = it.href || it.cfi || it.idref; break; }
+                          }
+                          if (nextHref) {
+                            return r.display(nextHref);
+                          }
+                        } catch(e){}
+                      }
+                    } catch(e){}
+                  });
                 } catch(e){}
                 return r.display();
               }
