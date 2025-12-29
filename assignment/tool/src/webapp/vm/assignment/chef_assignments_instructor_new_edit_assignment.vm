@@ -747,7 +747,7 @@
 
       function initViewerWith(mode){
         try {
-          var proxyUrl = buildDemoProxyUrl();
+          var proxyUrl = buildProxyUrl();
           setStatus('Descargando…');
           var respHeaders = {};
           w.fetch(proxyUrl, { credentials: 'same-origin' })
