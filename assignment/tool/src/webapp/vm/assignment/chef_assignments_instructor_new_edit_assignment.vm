@@ -611,21 +611,19 @@
         setStatus('Error'); log.textContent = 'No se pudo cargar epub.js';
       });
 
-      // Botón Demo (servidor): carga el demo desde el endpoint del servidor, funcionando incluso sin internet
+      // Botón Demo (servidor): usa el action del tool para evitar problemas de enrutado del portal
       demoBtn.addEventListener('click', function(){
         try {
-          function getPlacementId(pathname){
-            var m = pathname && pathname.match(/\/portal\/(?:site\/[^\/]+\/)?tool\/([^\/]+)/);
-            return m ? m[1] : null;
-          }
-          var loc = window.location;
-          var origin = loc.origin || (loc.protocol + '//' + loc.host);
-          var placementId = getPlacementId(loc.pathname) || '';
-          if (!placementId && document.referrer) {
-            var a = document.createElement('a'); a.href = document.referrer; placementId = getPlacementId(a.pathname) || '';
-          }
-          if (!placementId) { setStatus('Error'); log.textContent = 'No se pudo determinar el placementId para demo'; return; }
-          proxyUrl = origin + '/portal/tool/' + placementId + '/epub/demo';
+          // Construir URL del action del tool (AssignmentAction) usando eventSubmit_doEpub_proxy y demo=1
+          var u = new URL(window.location.href);
+          var sp = u.searchParams;
+          sp.set('eventSubmit_doEpub_proxy', '1');
+          sp.set('demo', '1');
+          // Fuerza re-generación del demo (sin caché) por si se cambió recientemente
+          sp.set('nocache', '1');
+          u.search = sp.toString();
+          proxyUrl = u.toString();
+
           setStatus('Cargando demo del servidor…');
           // Vaciar visor y reiniciar
           var v = document.getElementById('viewer'); if (v) v.innerHTML = '';
