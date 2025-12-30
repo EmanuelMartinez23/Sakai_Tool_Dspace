@@ -825,8 +825,8 @@
               // Nombre a mostrar en estado
               var filename = deriveNiceFilename(respHeaders);
 
-              // Opciones de renderizado: flujo continuo por documento; contenedor contenido para evitar recortes
-              var renderOpts = { width:'100%', flow:'scrolled-doc', spread:'none', allowScriptedContent:true, contained:true };
+              // Opciones de renderizado: flujo continuo simple (conf probado previamente)
+              var renderOpts = { width:'100%', flow:'scrolled', spread:'none' };
 
               // Afinar estilos y eventos para evitar cortes/alturas 0
               function adjustView(view, r){
@@ -1033,7 +1033,7 @@
               }
 
               try {
-                book = w.ePub({ replacements: 'blobUrl', allowScriptedContent: true });
+                book = w.ePub({ replacements: 'blobUrl' });
                 if (book && typeof book.open === 'function') {
                   return book.open(buf, 'binary').then(function(){
                     rendition = book.renderTo('viewer', renderOpts);
