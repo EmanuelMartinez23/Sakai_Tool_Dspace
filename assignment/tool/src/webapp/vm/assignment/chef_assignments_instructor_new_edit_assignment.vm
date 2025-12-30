@@ -837,6 +837,7 @@
               var currentIndex = -1;
               var lastCfi = '';
               var lastNavDir = '';
+              var forceTopOnNextRender = false;
               function updateIndexFromLoc(loc){
                 try {
                   if (!loc || !book || !book.spine) return;
@@ -851,6 +852,8 @@
                 try {
                   var oldCfi = lastCfi;
                   lastNavDir = dir === 'prev' ? 'prev' : 'next';
+                  // si vamos hacia atrás, marcar que debemos forzar TOP tras renderizar
+                  forceTopOnNextRender = (dir === 'prev');
                   if (dir === 'next') r.next(); else r.prev();
                   setTimeout(function(){
                     try {
@@ -923,22 +926,36 @@
                             safeNav(rendition, 'next');
                             return;
                           }
-                          // Si venimos de navegar hacia atrás, forzar scroll al inicio de la sección
-                          if (lastNavDir === 'prev') {
-                            try {
-                              // Scroll dentro del iframe de la vista
-                              if (view && view.window && typeof view.window.scrollTo === 'function') {
-                                view.window.scrollTo(0, 0);
-                              }
-                              if (view && view.document && view.document.documentElement) {
-                                view.document.documentElement.scrollTop = 0;
-                              }
-                            } catch(e){}
-                            try {
-                              // Scroll del contenedor visible del visor
-                              var container = d.getElementById('viewer');
-                              if (container) container.scrollTop = 0;
-                            } catch(e){}
+                          // Si venimos de navegar hacia atrás o está marcado el flag, forzar TOP con varios intentos
+                          if (lastNavDir === 'prev' || forceTopOnNextRender) {
+                            var container = d.getElementById('viewer');
+                            function doTopOnce(){
+                              try {
+                                if (container) {
+                                  // evitar smooth scrolling
+                                  container.style.scrollBehavior = 'auto';
+                                  container.scrollTop = 0;
+                                }
+                              } catch(e){}
+                              try {
+                                if (view && view.window && typeof view.window.scrollTo === 'function') {
+                                  view.window.scrollTo(0, 0);
+                                }
+                              } catch(e){}
+                              try {
+                                if (view && view.document && view.document.documentElement) {
+                                  view.document.documentElement.scrollTop = 0;
+                                }
+                                if (view && view.document && view.document.body) {
+                                  view.document.body.scrollTop = 0;
+                                }
+                              } catch(e){}
+                            }
+                            // ejecutar múltiples veces para ganar a cualquier restauración interna
+                            doTopOnce();
+                            setTimeout(doTopOnce, 30);
+                            setTimeout(doTopOnce, 90);
+                            setTimeout(function(){ doTopOnce(); forceTopOnNextRender = false; }, 180);
                           }
                         } catch(e){}
                       });
