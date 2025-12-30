@@ -541,9 +541,29 @@
               book.open(buf, 'binary');
               var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
               rendition.display();
-              prevBtn.addEventListener('click', function(){ rendition.prev(); });
-              nextBtn.addEventListener('click', function(){ rendition.next(); });
-              w.addEventListener('keydown', function(e){ if (e.key === 'ArrowLeft') rendition.prev(); if (e.key === 'ArrowRight') rendition.next(); });
+              var lastNavDir = null;
+              function resetContainerTop(){
+                try {
+                  var container = d.getElementById('viewer');
+                  if (!container) return;
+                  var prevBehavior = container.style.scrollBehavior;
+                  container.style.scrollBehavior = 'auto';
+                  container.style.overflowAnchor = 'none';
+                  container.scrollTop = 0;
+                  requestAnimationFrame(function(){ try { container.scrollTop = 0; } catch(e){} });
+                  setTimeout(function(){ try { container.scrollTop = 0; } catch(e){} }, 32);
+                  container.style.scrollBehavior = prevBehavior || '';
+                } catch(e){}
+              }
+              prevBtn.addEventListener('click', function(){ lastNavDir = 'prev'; resetContainerTop(); rendition.prev(); });
+              nextBtn.addEventListener('click', function(){ lastNavDir = 'next'; rendition.next(); });
+              w.addEventListener('keydown', function(e){
+                try {
+                  if (e.key === 'ArrowLeft') { e.preventDefault(); lastNavDir = 'prev'; resetContainerTop(); rendition.prev(); }
+                  if (e.key === 'ArrowRight') { e.preventDefault(); lastNavDir = 'next'; rendition.next(); }
+                } catch(err){}
+              });
+              try { rendition.on('rendered', function(){ if (lastNavDir === 'prev') resetContainerTop(); }); } catch(e){}
               book.ready.then(function(){ return book.locations.generate(1600); }).then(function(){
                 rendition.on('relocated', function(loc){
                   try {
@@ -671,6 +691,7 @@
         '#status{font-size:12px;opacity:.9;margin-left:8px}\n'+
         'main{flex:1;display:flex;min-height:0}\n'+
         '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:auto;display:block}\n'+
+                '#viewer{overflow-anchor: none;}\n'+
                 '#viewer > iframe, #viewer .epub-container{width:100% !important; height:100% !important;}\n'+
                 'html, body, main, #viewer{height:100%}\n'+
                 'body{overflow:hidden}\n'+
@@ -864,6 +885,20 @@
                   lastNavDir = dir === 'prev' ? 'prev' : 'next';
                   // si vamos hacia atrás, marcar que debemos forzar TOP tras renderizar
                   forceTopOnNextRender = (dir === 'prev');
+                  // Pre-reset inmediato del contenedor antes de cambiar de sección (evita anclajes/restauraciones)
+                  try {
+                    var container = d.getElementById('viewer');
+                    if (container) {
+                      var prevBehavior = container.style.scrollBehavior;
+                      container.style.scrollBehavior = 'auto';
+                      container.scrollTop = 0;
+                      // múltiples frames por si hay encolados de layout
+                      requestAnimationFrame(function(){ try { container.scrollTop = 0; } catch(e){} });
+                      setTimeout(function(){ try { container.scrollTop = 0; } catch(e){} }, 0);
+                      // restaurar comportamiento
+                      container.style.scrollBehavior = prevBehavior || '';
+                    }
+                  } catch(e){}
                   if (dir === 'next') r.next(); else r.prev();
                   setTimeout(function(){
                     try {
@@ -910,7 +945,23 @@
                   return book.open(buf, 'binary').then(function(){
                     rendition = book.renderTo('viewer', renderOpts);
                     hookNav(rendition);
-                    try { rendition.on('relocated', function(loc){ updateIndexFromLoc(loc); }); } catch(e){}
+                    try { rendition.on('relocated', function(loc){
+                      try {
+                        updateIndexFromLoc(loc);
+                        if (lastNavDir === 'prev' || forceTopOnNextRender) {
+                          var container = d.getElementById('viewer');
+                          if (container) {
+                            var prevBehavior = container.style.scrollBehavior;
+                            container.style.scrollBehavior = 'auto';
+                            container.style.overflowAnchor = 'none';
+                            container.scrollTop = 0;
+                            requestAnimationFrame(function(){ try { container.scrollTop = 0; } catch(e){} });
+                            setTimeout(function(){ try { container.scrollTop = 0; } catch(e){} }, 32);
+                            container.style.scrollBehavior = prevBehavior || '';
+                          }
+                        }
+                      } catch(e){}
+                    }); } catch(e){}
                     // Saltar secciones en blanco automáticamente
                     try {
                       var skipped = {};
@@ -942,9 +993,12 @@
                             function doTopOnce(){
                               try {
                                 if (container) {
-                                  // evitar smooth scrolling
+                                  // evitar smooth scrolling y anclaje
+                                  var prevBehavior = container.style.scrollBehavior;
                                   container.style.scrollBehavior = 'auto';
+                                  container.style.overflowAnchor = 'none';
                                   container.scrollTop = 0;
+                                  container.style.scrollBehavior = prevBehavior || '';
                                 }
                               } catch(e){}
                               try {
@@ -953,19 +1007,21 @@
                                 }
                               } catch(e){}
                               try {
-                                if (view && view.document && view.document.documentElement) {
-                                  view.document.documentElement.scrollTop = 0;
-                                }
-                                if (view && view.document && view.document.body) {
-                                  view.document.body.scrollTop = 0;
+                                if (view && view.document) {
+                                  var de = view.document.documentElement;
+                                  var bo = view.document.body;
+                                  if (de) { de.style.overflowAnchor = 'none'; de.scrollTop = 0; }
+                                  if (bo) { bo.style.overflowAnchor = 'none'; bo.scrollTop = 0; }
                                 }
                               } catch(e){}
                             }
-                            // ejecutar múltiples veces para ganar a cualquier restauración interna
+                            // ejecutar en varios frames y tiempos para vencer restauraciones internas/imagenes tardías
                             doTopOnce();
-                            setTimeout(doTopOnce, 30);
-                            setTimeout(doTopOnce, 90);
-                            setTimeout(function(){ doTopOnce(); forceTopOnNextRender = false; }, 180);
+                            try { requestAnimationFrame(doTopOnce); } catch(e){}
+                            setTimeout(doTopOnce, 16);
+                            setTimeout(doTopOnce, 48);
+                            setTimeout(doTopOnce, 120);
+                            setTimeout(function(){ doTopOnce(); forceTopOnNextRender = false; }, 240);
                           }
                         } catch(e){}
                       });
@@ -2990,8 +3046,9 @@ function showExternalIframe(title, doreload) {
 			#buttonBar()
 		</div>
 		<input type="hidden" name="sakai_csrf_token" value="$sakai_csrf_token" />
-
+	</div>
 	</form>
+</div>
 </div>
 </div>
 </div>
