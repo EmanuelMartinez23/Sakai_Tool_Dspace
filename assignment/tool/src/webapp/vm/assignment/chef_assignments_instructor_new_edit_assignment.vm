@@ -886,6 +886,7 @@
                   return book.open(buf, 'binary').then(function(){
                     rendition = book.renderTo('viewer', renderOpts);
                     hookNav(rendition);
+                    try { rendition.on('relocated', function(loc){ updateIndexFromLoc(loc); }); } catch(e){}
                     return displayStart(book, rendition).then(function(){
                       setStatus('Listo · ' + (filename||'EPUB'));
                       logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''));
