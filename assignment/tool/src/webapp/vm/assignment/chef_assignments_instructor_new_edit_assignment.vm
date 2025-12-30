@@ -435,6 +435,10 @@
         '#log{font-size:12px;color:#555;padding:6px 10px}'
       ));
       head.appendChild(style);
+      var style2 = d.createElement('style');
+      style2.type = 'text/css';
+      style2.appendChild(d.createTextNode('#viewer > iframe, #viewer .epub-container{width:100% !important; height:auto !important;}#viewer .epub-container, #viewer .epub-container .epub-view{height:auto !important; min-height:1px !important; display:block !important;}#viewer .epub-view iframe{width:100% !important; height:auto !important; display:block !important;}'));
+      head.appendChild(style2);
 
       // Estructura del cuerpo
       var body = d.body || d.createElement('body');
@@ -1131,7 +1135,7 @@
 
     <!-- Botón de previsualización EPUB (temporal, en blanco) -->
     <div class="d-flex justify-content-end mb-3">
-      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview2()">
+      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview()">
         <span class="me-1" aria-hidden="true"><i class="si si-eye"></i></span>
         Previsualizar EPUB
       </button>
