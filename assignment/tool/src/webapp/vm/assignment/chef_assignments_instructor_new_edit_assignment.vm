@@ -1131,7 +1131,7 @@
 
     <!-- Botón de previsualización EPUB (temporal, en blanco) -->
     <div class="d-flex justify-content-end mb-3">
-      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview()">
+      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview2()">
         <span class="me-1" aria-hidden="true"><i class="si si-eye"></i></span>
         Previsualizar EPUB
       </button>
