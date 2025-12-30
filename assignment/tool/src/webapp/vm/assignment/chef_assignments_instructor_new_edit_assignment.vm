@@ -825,14 +825,48 @@
               var renderOpts = { width:'100%', height:'100%', flow:'paginated', manager:'default', spread:'auto', allowScriptedContent:false };
 
               var book, rendition;
+              var currentIndex = -1;
+              var lastCfi = '';
+              function updateIndexFromLoc(loc){
+                try {
+                  if (!loc || !book || !book.spine) return;
+                  var item = book.spine.get(loc.start && loc.start.cfi ? loc.start.cfi : (loc.start && loc.start.href ? loc.start.href : null));
+                  if (item) {
+                    currentIndex = book.spine.spineItems.indexOf(item);
+                  }
+                  if (loc.start && loc.start.cfi) lastCfi = loc.start.cfi;
+                } catch(e){}
+              }
+              function safeNav(r, dir){
+                try {
+                  var oldCfi = lastCfi;
+                  if (dir === 'next') r.next(); else r.prev();
+                  setTimeout(function(){
+                    try {
+                      if (lastCfi && oldCfi && lastCfi !== oldCfi) return; // se movió
+                      // Fallback: saltar explícitamente por el spine
+                      var idx = (typeof currentIndex === 'number' ? currentIndex : -1);
+                      if (idx >= 0 && book && book.spine && book.spine.spineItems) {
+                        var targetIdx = dir === 'next' ? idx + 1 : idx - 1;
+                        var items = book.spine.spineItems;
+                        if (targetIdx >= 0 && targetIdx < items.length) {
+                          var it = items[targetIdx];
+                          var href = it && (it.href || it.cfi || it.idref);
+                          if (href) r.display(href);
+                        }
+                      }
+                    } catch(e){}
+                  }, 180);
+                } catch(e){}
+              }
               function hookNav(r){
-                prevBtn.onclick = function(){ try { r.prev(); } catch(e){} };
-                nextBtn.onclick = function(){ try { r.next(); } catch(e){} };
+                prevBtn.onclick = function(){ safeNav(r, 'prev'); };
+                nextBtn.onclick = function(){ safeNav(r, 'next'); };
                 // Navegación con teclado: flechas izquierda/derecha
                 w.addEventListener('keydown', function(e){
                   try {
-                    if (e.key === 'ArrowLeft')  { e.preventDefault(); r.prev(); }
-                    if (e.key === 'ArrowRight') { e.preventDefault(); r.next(); }
+                    if (e.key === 'ArrowLeft')  { e.preventDefault(); safeNav(r, 'prev'); }
+                    if (e.key === 'ArrowRight') { e.preventDefault(); safeNav(r, 'next'); }
                   } catch(err){}
                 });
                 w.addEventListener('resize', function(){ try { r.resize(w.innerWidth, w.innerHeight); } catch(e){} });
