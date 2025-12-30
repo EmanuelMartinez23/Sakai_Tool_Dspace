@@ -424,14 +424,15 @@
       style.appendChild(d.createTextNode(
         '*{box-sizing:border-box}\n' +
         'html,body{height:100%}\n' +
-        'body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f6f6f6;color:#222;display:flex;flex-direction:column}\n' +
+        'body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:0;background:#f6f6f6;color:#222;display:flex;flex-direction:column;overflow:hidden}\n' +
         'header{background:#0f6cbf;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px}\n' +
         '#controls{margin-left:auto;display:flex;gap:6px}\n' +
         'button{background:#fff;color:#222;border:1px solid #d0d0d0;border-radius:6px;padding:6px 10px;cursor:pointer}\n' +
         'button:hover{background:#f0f0f0}\n' +
         '#status{font-size:12px;opacity:.9;margin-left:8px}\n' +
-        'main{flex:1;display:flex;min-height:0}\n' +
-        '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;display:flex}\n' +
+        'main{flex:1;display:flex;min-height:0;height:100%}\n' +
+        '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:auto;display:block;height:100%;overflow-anchor:none}\n' +
+        '#viewer > iframe, #viewer .epub-container{width:100% !important; height:100% !important;}\n' +
         '#log{font-size:12px;color:#555;padding:6px 10px}'
       ));
       head.appendChild(style);
@@ -539,8 +540,16 @@
               // Abrir directamente el ArrayBuffer como binario para evitar peticiones a /META-INF/container.xml
               var book = w.ePub();
               book.open(buf, 'binary');
-              var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
+              var rendition = book.renderTo('viewer', { width: '100%', height: '100%', flow: 'scrolled-doc', manager: 'default', spread: 'none', minSpreadWidth: 0 });
               rendition.display();
+              try {
+                if (rendition && rendition.themes && typeof rendition.themes.default === 'function') {
+                  rendition.themes.default({
+                    'html, body': { 'overflow-anchor': 'none' },
+                    'img, svg, video': { 'max-width': '100%', 'height': 'auto' }
+                  });
+                }
+              } catch(e){}
               var lastNavDir = null;
               function resetContainerTop(){
                 try {
