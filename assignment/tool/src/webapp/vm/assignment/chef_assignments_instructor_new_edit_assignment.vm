@@ -821,8 +821,8 @@
               // Nombre a mostrar en estado
               var filename = deriveNiceFilename(respHeaders);
 
-              // Opciones de renderizado: paginado para navegar con flechas por todo el libro (1 sola página, sin hojas en blanco)
-              var renderOpts = { width:'100%', height:'100%', flow:'paginated', manager:'default', spread:'none', minSpreadWidth: 0, allowScriptedContent:false };
+              // Opciones de renderizado: una sola sección visible con scroll vertical interno (sin páginas en blanco)
+              var renderOpts = { width:'100%', height:'100%', flow:'scrolled-doc', manager:'default', spread:'none', minSpreadWidth: 0, allowScriptedContent:false };
 
               var book, rendition;
               var currentIndex = -1;
