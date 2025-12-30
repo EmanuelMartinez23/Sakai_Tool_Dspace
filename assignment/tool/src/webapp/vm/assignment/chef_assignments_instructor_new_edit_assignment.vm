@@ -1125,22 +1125,22 @@
 
         <h4>Repositorio Institucional (Colecciones)</h4>
         
-        <!-- Nota informativa formal -->
-        <div class="alert alert-info" role="note" style="margin-top:6px;">
+        <!-- Nota informativa formal con alto contraste -->
+        <div class="alert alert-info" role="note" style="margin-top:6px; padding:8px 12px; background:#e6f2ff; border:1px solid #2b6cb0; color:#0b3d75; border-left-width:4px;">
             <strong>Nota informativa:</strong>
             <span>En esta sección usted puede agregar recursos u OVAs a su tarea; estos recursos se encuentran almacenados en el Repositorio Institucional de la universidad.</span>
         </div>
 
-        <!-- Card formal con instrucciones (expandible/retraíble, sin dependencias JS) -->
-        <details class="instruction-card" style="border:1px solid #ddd;border-radius:8px;padding:12px;background:#fff;margin-top:10px;margin-bottom:10px;">
-            <summary style="font-weight:600;cursor:pointer;list-style:none;">
+        <!-- Card formal con instrucciones (expandible/retraíble, sin dependencias JS) con colores de alto contraste -->
+        <details class="instruction-card" style="border:1px solid #2c5282; border-radius:8px; background:#f0f6ff; margin-top:10px; margin-bottom:10px;">
+            <summary style="font-weight:600; cursor:pointer; list-style:none; background:#2b6cb0; color:#ffffff; padding:10px 12px; border-radius:6px;">
                 Instrucciones para el uso de recursos
             </summary>
-            <div style="margin-top:10px;">
+            <div style="margin-top:10px; color:#1a202c; line-height:1.5; padding:12px;">
                 <p style="margin:0 0 8px 0;">
                     <strong>Visualización de ODA:</strong> Si el recurso es una ODA que se encuentra en el repositorio, usted puede visualizarlo antes de agregarlo o descargarlo, haciendo clic en el botón EPUB.
                 </p>
-                <hr style="margin:10px 0;">
+                <hr style="margin:10px 0; border-color:#cbd5e0;">
                 <p style="margin:0 0 8px 0;">
                     <strong>Opción 1: Descargar recursos</strong><br>
                     Usted puede descargar los recursos desde el Repositorio Institucional seleccionándolos y luego hacer clic en el botón "Descargar los archivos seleccionados". Los recursos se descargarán y almacenarán en Sakai, quedando adjuntos en la tarea.
