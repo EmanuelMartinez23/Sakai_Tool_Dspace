@@ -431,7 +431,7 @@
         'button:hover{background:#f0f0f0}\n' +
         '#status{font-size:12px;opacity:.9;margin-left:8px}\n' +
         'main{flex:1;display:flex;min-height:0}\n' +
-        '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;display:flex}\n' +
+        '#viewer{flex:1;background:#fff;margin:10px;border:1px solid #e0e0e0;border-radius:8px;overflow:auto;display:block}\n' +
         '#log{font-size:12px;color:#555;padding:6px 10px}'
       ));
       head.appendChild(style);
@@ -551,7 +551,8 @@
               // Abrir directamente el ArrayBuffer como binario para evitar peticiones a /META-INF/container.xml
               var book = w.ePub();
               book.open(buf, 'binary');
-              var rendition = book.renderTo('viewer', { width: '100%', height: '100%' });
+              var renderOpts = { width:'100%', height:'100%', flow:'scrolled', manager:'continuous', spread:'none' };
+              var rendition = book.renderTo('viewer', renderOpts);
               rendition.display();
               prevBtn.addEventListener('click', function(){ rendition.prev(); });
               nextBtn.addEventListener('click', function(){ rendition.next(); });
@@ -1130,7 +1131,7 @@
 
     <!-- Botón de previsualización EPUB (temporal, en blanco) -->
     <div class="d-flex justify-content-end mb-3">
-      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview2()">
+      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview()">
         <span class="me-1" aria-hidden="true"><i class="si si-eye"></i></span>
         Previsualizar EPUB
       </button>
@@ -3087,9 +3088,8 @@ function showExternalIframe(title, doreload) {
 			#buttonBar()
 		</div>
 		<input type="hidden" name="sakai_csrf_token" value="$sakai_csrf_token" />
- </form>
-</div>
-</div>
+	</div>
+		</form>
 </div>
 </div>
 </div>
