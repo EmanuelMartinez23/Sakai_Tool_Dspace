@@ -139,7 +139,7 @@
 <style>
     /* DSpace Section Styles */
     .dspace-section {
-        border: 1px solid #8c8a8a;
+        border: none;
     }
 
     .dspace-container {
