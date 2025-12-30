@@ -835,6 +835,7 @@
 
               var book, rendition;
               var currentIndex = -1;
+              var lastIndex = -1;
               var lastCfi = '';
               var lastNavDir = '';
               var forceTopOnNextRender = false;
@@ -843,7 +844,16 @@
                   if (!loc || !book || !book.spine) return;
                   var item = book.spine.get(loc.start && loc.start.cfi ? loc.start.cfi : (loc.start && loc.start.href ? loc.start.href : null));
                   if (item) {
-                    currentIndex = book.spine.spineItems.indexOf(item);
+                    var idx = book.spine.spineItems.indexOf(item);
+                    if (typeof currentIndex === 'number') {
+                      lastIndex = currentIndex;
+                    }
+                    currentIndex = idx;
+                    // Si detectamos que el índice disminuyó (navegación hacia atrás por rueda/gesto), forzar TOP
+                    if (typeof lastIndex === 'number' && lastIndex >= 0 && typeof idx === 'number' && idx >= 0 && idx < lastIndex) {
+                      lastNavDir = 'prev';
+                      forceTopOnNextRender = true;
+                    }
                   }
                   if (loc.start && loc.start.cfi) lastCfi = loc.start.cfi;
                 } catch(e){}
@@ -2980,7 +2990,6 @@ function showExternalIframe(title, doreload) {
 			#buttonBar()
 		</div>
 		<input type="hidden" name="sakai_csrf_token" value="$sakai_csrf_token" />
-	</div>
 
 	</form>
 </div>
