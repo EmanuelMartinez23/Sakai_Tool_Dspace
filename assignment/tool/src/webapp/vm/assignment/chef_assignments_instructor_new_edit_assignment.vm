@@ -836,6 +836,7 @@
               var book, rendition;
               var currentIndex = -1;
               var lastCfi = '';
+              var lastNavDir = '';
               function updateIndexFromLoc(loc){
                 try {
                   if (!loc || !book || !book.spine) return;
@@ -849,6 +850,7 @@
               function safeNav(r, dir){
                 try {
                   var oldCfi = lastCfi;
+                  lastNavDir = dir === 'prev' ? 'prev' : 'next';
                   if (dir === 'next') r.next(); else r.prev();
                   setTimeout(function(){
                     try {
@@ -915,9 +917,28 @@
                         try {
                           updateIndexFromLoc(section && section.cfiBase ? { start: { cfi: section.cfiBase } } : null);
                           var idx = currentIndex;
+                          // Si la sección parece “en blanco”, saltarla automáticamente
                           if (typeof idx === 'number' && !skipped[idx] && isBlankView(view)) {
                             skipped[idx] = true;
                             safeNav(rendition, 'next');
+                            return;
+                          }
+                          // Si venimos de navegar hacia atrás, forzar scroll al inicio de la sección
+                          if (lastNavDir === 'prev') {
+                            try {
+                              // Scroll dentro del iframe de la vista
+                              if (view && view.window && typeof view.window.scrollTo === 'function') {
+                                view.window.scrollTo(0, 0);
+                              }
+                              if (view && view.document && view.document.documentElement) {
+                                view.document.documentElement.scrollTop = 0;
+                              }
+                            } catch(e){}
+                            try {
+                              // Scroll del contenedor visible del visor
+                              var container = d.getElementById('viewer');
+                              if (container) container.scrollTop = 0;
+                            } catch(e){}
                           }
                         } catch(e){}
                       });
