@@ -821,13 +821,20 @@
               // Nombre a mostrar en estado
               var filename = deriveNiceFilename(respHeaders);
 
-              // Opciones de renderizado: continuo y de alto completo
-              var renderOpts = { width:'100%', height:'100%', flow:'scrolled-doc', manager:'continuous', spread:'none', allowScriptedContent:false };
+              // Opciones de renderizado: paginado para navegar con flechas por todo el libro
+              var renderOpts = { width:'100%', height:'100%', flow:'paginated', manager:'default', spread:'auto', allowScriptedContent:false };
 
               var book, rendition;
               function hookNav(r){
                 prevBtn.onclick = function(){ try { r.prev(); } catch(e){} };
                 nextBtn.onclick = function(){ try { r.next(); } catch(e){} };
+                // Navegación con teclado: flechas izquierda/derecha
+                w.addEventListener('keydown', function(e){
+                  try {
+                    if (e.key === 'ArrowLeft')  { e.preventDefault(); r.prev(); }
+                    if (e.key === 'ArrowRight') { e.preventDefault(); r.next(); }
+                  } catch(err){}
+                });
                 w.addEventListener('resize', function(){ try { r.resize(w.innerWidth, w.innerHeight); } catch(e){} });
               }
 
