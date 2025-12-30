@@ -564,15 +564,23 @@
                   container.style.scrollBehavior = prevBehavior || '';
                 } catch(e){}
               }
-              prevBtn.addEventListener('click', function(){ lastNavDir = 'prev'; resetContainerTop(); rendition.prev(); });
-              nextBtn.addEventListener('click', function(){ lastNavDir = 'next'; rendition.next(); });
+              function forceTopNowAndSoon(){
+                try { resetContainerTop(); } catch(e){}
+                try { requestAnimationFrame(resetContainerTop); } catch(e){}
+                try { setTimeout(resetContainerTop, 16); } catch(e){}
+                try { setTimeout(resetContainerTop, 64); } catch(e){}
+              }
+              function goPrev(){ lastNavDir = 'prev'; forceTopNowAndSoon(); rendition.prev(); }
+              function goNext(){ lastNavDir = 'next'; forceTopNowAndSoon(); rendition.next(); }
+              prevBtn.addEventListener('click', goPrev);
+              nextBtn.addEventListener('click', goNext);
               w.addEventListener('keydown', function(e){
                 try {
-                  if (e.key === 'ArrowLeft') { e.preventDefault(); lastNavDir = 'prev'; resetContainerTop(); rendition.prev(); }
-                  if (e.key === 'ArrowRight') { e.preventDefault(); lastNavDir = 'next'; rendition.next(); }
+                  if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev(); }
+                  if (e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
                 } catch(err){}
               });
-              try { rendition.on('rendered', function(){ if (lastNavDir === 'prev') resetContainerTop(); }); } catch(e){}
+              try { rendition.on('rendered', function(){ forceTopNowAndSoon(); }); } catch(e){}
               book.ready.then(function(){ return book.locations.generate(1600); }).then(function(){
                 rendition.on('relocated', function(loc){
                   try {
@@ -892,8 +900,8 @@
                 try {
                   var oldCfi = lastCfi;
                   lastNavDir = dir === 'prev' ? 'prev' : 'next';
-                  // si vamos hacia atrás, marcar que debemos forzar TOP tras renderizar
-                  forceTopOnNextRender = (dir === 'prev');
+                  // en cualquier dirección, forzar TOP tras renderizar
+                  forceTopOnNextRender = true;
                   // Pre-reset inmediato del contenedor antes de cambiar de sección (evita anclajes/restauraciones)
                   try {
                     var container = d.getElementById('viewer');
