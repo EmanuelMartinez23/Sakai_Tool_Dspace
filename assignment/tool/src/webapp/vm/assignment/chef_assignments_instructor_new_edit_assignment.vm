@@ -457,7 +457,18 @@
 
       function setStatus(msg){ status.textContent = msg || ''; }
       function logMsg(){ try { var m = Array.prototype.slice.call(arguments).join(' '); (w.console&&w.console.log)&&w.console.log('[EPUB]', m); log.textContent = m; } catch(e){} }
-      w.onerror = function(m,s,l,c,e){ logMsg('Error global:', m, '@', s+':'+l); setStatus('Error'); };
+      w.onerror = function(m,s,l,c,e){
+        try {
+          var msg = (m || '').toString();
+          if (msg.indexOf('ResizeObserver loop') !== -1) {
+            // Ignorar avisos benignos de ResizeObserver que pueden ocurrir en epub.js/iframes
+            return true; // evita marcar error y detiene el manejo por defecto
+          }
+        } catch (ex) {}
+        logMsg('Error global:', m, '@', s+':'+l);
+        setStatus('Error');
+        return false; // dejar que el navegador procese otros errores reales
+      };
 
       // Inicialización del visor una vez cargado epub.js
       function initViewer(){
