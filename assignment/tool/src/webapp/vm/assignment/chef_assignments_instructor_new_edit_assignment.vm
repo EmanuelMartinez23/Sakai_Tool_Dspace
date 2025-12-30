@@ -446,8 +446,7 @@
       var controls = d.createElement('div'); controls.id = 'controls';
       var prevBtn = d.createElement('button'); prevBtn.id = 'prevBtn'; prevBtn.title = 'Página anterior'; prevBtn.appendChild(d.createTextNode('\u2B05')); // ⬅
       var nextBtn = d.createElement('button'); nextBtn.id = 'nextBtn'; nextBtn.title = 'Página siguiente'; nextBtn.appendChild(d.createTextNode('\u27A1')); // ➡
-      var demoBtn = d.createElement('button'); demoBtn.id = 'demoBtn'; demoBtn.title = 'Cargar EPUB de prueba'; demoBtn.textContent = 'Demo';
-      controls.appendChild(prevBtn); controls.appendChild(nextBtn); controls.appendChild(demoBtn); header.appendChild(controls);
+      controls.appendChild(prevBtn); controls.appendChild(nextBtn); header.appendChild(controls);
 
       var main = d.createElement('main');
       var viewer = d.createElement('div'); viewer.id = 'viewer';
@@ -655,7 +654,7 @@
       var d = w.document;
       d.title = 'Previsualizador EPUB';
       var currentSource = (typeof sourceUrl === 'string') ? sourceUrl : '';
-      var popupUseDemo = !currentSource;
+      var popupUseDemo = false;
       var head = d.head || d.getElementsByTagName('head')[0] || d.createElement('head');
       if (!d.head) d.documentElement.insertBefore(head, d.body || null);
 
@@ -688,8 +687,7 @@
       var controls = d.createElement('div'); controls.id = 'controls';
       var prevBtn = d.createElement('button'); prevBtn.id = 'prevBtn'; prevBtn.title = 'Página anterior'; prevBtn.appendChild(d.createTextNode('\u2B05'));
       var nextBtn = d.createElement('button'); nextBtn.id = 'nextBtn'; nextBtn.title = 'Página siguiente'; nextBtn.appendChild(d.createTextNode('\u27A1'));
-      var demoBtn = d.createElement('button'); demoBtn.id = 'demoBtn'; demoBtn.title = 'Cargar EPUB de prueba'; demoBtn.textContent = 'Demo';
-      controls.appendChild(prevBtn); controls.appendChild(nextBtn); controls.appendChild(demoBtn); header.appendChild(controls);
+      controls.appendChild(prevBtn); controls.appendChild(nextBtn); header.appendChild(controls);
 
       var main = d.createElement('main');
       var viewer = d.createElement('div'); viewer.id = 'viewer';
@@ -714,7 +712,7 @@
       }
 
       var libsLoaded = { zip:false, epub:false };
-      function onLibReady(){ if (libsLoaded.zip && libsLoaded.epub) initViewerWith('demo'); }
+      function onLibReady(){ if (libsLoaded.zip && libsLoaded.epub) initViewerWith('source'); }
 
       // Cargar JSZip local -> CDN
       loadFromCandidates([
@@ -734,20 +732,31 @@
 
       function bytesToHex(buf){ var a = new Uint8Array(buf.slice(0,8)); return Array.prototype.map.call(a, x=>('0'+x.toString(16)).slice(-2)).join(' '); }
 
-            // Elegir la primera sección "real" (no portada/nav) para evitar página en blanco
+            // Elegir la primera sección "real" (evita portada/nav/copyright/toc/title/blank)
             function pickStartHref(book){
               try {
                 var items = (book && book.spine && book.spine.spineItems) ? book.spine.spineItems : [];
                 if (items && items.length){
+                  // Heurística por propiedades y nombre de archivo
+                  var isSkippable = function(it){
+                    try {
+                      var props = (it && it.properties) ? (''+it.properties).toLowerCase() : '';
+                      var linear = (it && it.linear) ? (''+it.linear).toLowerCase() : 'yes';
+                      if (linear === 'no') return true;
+                      if (props.indexOf('nav') !== -1 || props.indexOf('cover') !== -1) return true;
+                      var href = (it && it.href) ? (''+it.href).toLowerCase() : '';
+                      // Patrones comunes a portadas/índices/páginas en blanco
+                      var bad = ['cover','portada','nav','toc','contents','indice','index','copyright','licence','license','credits','front','title','blank','pagina-blanca','about'];
+                      for (var j=0;j<bad.length;j++){ if (href.indexOf('/'+bad[j]) !== -1 || href.indexOf(bad[j]+'.xhtml') !== -1 || href.indexOf(bad[j]+'.html') !== -1) return true; }
+                      return false;
+                    } catch(e){ return false; }
+                  };
+                  // 1) Primer item no saltable
                   for (var i=0;i<items.length;i++){
                     var it = items[i];
-                    var props = (it && it.properties) ? (''+it.properties).toLowerCase() : '';
-                    var linear = (it && it.linear) ? (''+it.linear).toLowerCase() : 'yes';
-                    if (linear !== 'no' && props.indexOf('nav') === -1 && props.indexOf('cover') === -1){
-                      return it.href || it.cfi || it.idref || undefined;
-                    }
+                    if (!isSkippable(it)) return it.href || it.cfi || it.idref || undefined;
                   }
-                  // Si el primero parece portada/nav, intenta el segundo
+                  // 2) Si todos parecen saltables, toma el segundo o el primero como último recurso
                   var first = items[0];
                   var second = items.length>1 ? items[1] : null;
                   return (second && (second.href||second.cfi||second.idref)) || (first && (first.href||first.cfi||first.idref)) || undefined;
@@ -887,6 +896,32 @@
                     rendition = book.renderTo('viewer', renderOpts);
                     hookNav(rendition);
                     try { rendition.on('relocated', function(loc){ updateIndexFromLoc(loc); }); } catch(e){}
+                    // Saltar secciones en blanco automáticamente
+                    try {
+                      var skipped = {};
+                      function isBlankView(v){
+                        try {
+                          if (!v || !v.document) return false;
+                          var B = v.document.body; if (!B) return false;
+                          var txt = (B.textContent||'').replace(/\s+/g,'');
+                          if (txt && txt.length > 10) return false;
+                          var hasMedia = B.querySelector('img,svg,object,embed,iframe,video,canvas');
+                          if (hasMedia) return false;
+                          // pocos caracteres no blancos: considerar blanco
+                          return true;
+                        } catch(e){ return false; }
+                      }
+                      rendition.on('rendered', function(section, view){
+                        try {
+                          updateIndexFromLoc(section && section.cfiBase ? { start: { cfi: section.cfiBase } } : null);
+                          var idx = currentIndex;
+                          if (typeof idx === 'number' && !skipped[idx] && isBlankView(view)) {
+                            skipped[idx] = true;
+                            safeNav(rendition, 'next');
+                          }
+                        } catch(e){}
+                      });
+                    } catch(e){}
                     return displayStart(book, rendition).then(function(){
                       setStatus('Listo · ' + (filename||'EPUB'));
                       logMsg('OK ·', (respHeaders.type||''), (respHeaders.length||''), (respHeaders.proxyHit||''), (respHeaders.diag||''));
@@ -921,17 +956,7 @@
         } catch (e) { setStatus('Error'); logMsg('Excepción en initViewer:', e && (e.stack||e)); }
       }
 
-      // Botón Demo: fuerza modo demo aunque se haya abierto con un bitstream
-      demoBtn.addEventListener('click', function(){
-        try {
-          popupUseDemo = true; // ignorar currentSource y usar demo
-          currentSource = '';
-          var v = d.getElementById('viewer');
-          if (v) v.innerHTML='';
-          initViewerWith('demo');
-        } catch(e){ setStatus('Error'); logMsg('Error al reiniciar demo:', e); }
-      });
-
+      // Foco a la ventana
       w.focus();
     } catch (e) { if (window.console && console.error) console.error('Error abriendo previsualizador EPUB 2:', e); }
   }
@@ -939,13 +964,6 @@
 <div class="portletBody container-fluid">
  #navBarOnClick( $allowAddAssignment $allowGradeSubmission $allowAddAssignment $allowRecoverAssignment $allowAllGroups $assignmentscheck $allowUpdateSite $enableViewOption $view "newAssignmentForm" "new" )
 
-    <!-- Botón de previsualización EPUB (temporal, en blanco) -->
-    <div class="d-flex justify-content-end mb-3">
-      <button type="button" id="btnEpubPreview" class="btn btn-outline-secondary" onclick="openEpubPreview2()">
-        <span class="me-1" aria-hidden="true"><i class="si si-eye"></i></span>
-        Previsualizar EPUB
-      </button>
-    </div>
 
 	<div class="page-header">
 		<h1>
