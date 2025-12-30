@@ -1124,6 +1124,33 @@
 		#end
 
         <h4>Repositorio Institucional (Colecciones)</h4>
+        
+        <!-- Nota informativa formal -->
+        <div class="alert alert-info" role="note" style="margin-top:6px;">
+            <strong>Nota informativa:</strong>
+            <span>En esta sección usted puede agregar recursos u OVAs a su tarea; estos recursos se encuentran almacenados en el Repositorio Institucional de la universidad.</span>
+        </div>
+
+        <!-- Card formal con instrucciones (expandible/retraíble, sin dependencias JS) -->
+        <details class="instruction-card" style="border:1px solid #ddd;border-radius:8px;padding:12px;background:#fff;margin-top:10px;margin-bottom:10px;">
+            <summary style="font-weight:600;cursor:pointer;list-style:none;">
+                Instrucciones para el uso de recursos
+            </summary>
+            <div style="margin-top:10px;">
+                <p style="margin:0 0 8px 0;">
+                    <strong>Visualización de ODA:</strong> Si el recurso es una ODA que se encuentra en el repositorio, usted puede visualizarlo antes de agregarlo o descargarlo, haciendo clic en el botón EPUB.
+                </p>
+                <hr style="margin:10px 0;">
+                <p style="margin:0 0 8px 0;">
+                    <strong>Opción 1: Descargar recursos</strong><br>
+                    Usted puede descargar los recursos desde el Repositorio Institucional seleccionándolos y luego hacer clic en el botón "Descargar los archivos seleccionados". Los recursos se descargarán y almacenarán en Sakai, quedando adjuntos en la tarea.
+                </p>
+                <p style="margin:0;">
+                    <strong>Opción 2: Agregar como enlace</strong><br>
+                    Haga clic en el botón "Agregar" para añadir el recurso a su tarea como Recurso Externo. Esto no descargará el recurso en Sakai (no consumirá espacio de almacenamiento); el contenido solo se descargará cuando el usuario lo solicite desde su equipo.
+                </p>
+            </div>
+        </details>
         <div class="dspace-section">
             <div class="dspace-container">
                 #if($dspaceError)
