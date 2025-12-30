@@ -713,7 +713,18 @@
 
       function setStatus(msg){ status.textContent = msg || ''; }
       function logMsg(){ try { var m = Array.prototype.slice.call(arguments).join(' '); (w.console&&w.console.log)&&w.console.log('[EPUB]', m); log.textContent = m; } catch(e){} }
-      w.onerror = function(m,s,l,c,e){ logMsg('Error global:', m, '@', s+':'+l); setStatus('Error'); };
+      w.onerror = function(m,s,l,c,e){
+        try {
+          var msg = (m || '').toString();
+          if (msg.indexOf('ResizeObserver loop') !== -1) {
+            // Aviso benigno que puede aparecer en epub.js/iframes: no bloquear el render
+            return true;
+          }
+        } catch (ex) {}
+        logMsg('Error global:', m, '@', s+':'+l);
+        setStatus('Error');
+        return false;
+      };
 
       // Helpers de carga de scripts (intenta varias rutas locales y luego CDN como último recurso)
       function injectScript(src, onload, onerror){
@@ -3076,7 +3087,8 @@ function showExternalIframe(title, doreload) {
 			#buttonBar()
 		</div>
 		<input type="hidden" name="sakai_csrf_token" value="$sakai_csrf_token" />
-	</form>
+ </form>
+</div>
 </div>
 </div>
 </div>
